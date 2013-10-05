@@ -1,0 +1,47 @@
+;; Second 1.1.7
+
+(define (square x)
+  (* x x)
+  )
+
+;; average two numbers
+(define average 
+  (lambda (x y)
+    (/ (+ x y) 2)
+    )
+  )
+;; sqrt function
+(define sqrt 
+  (lambda (x)
+    ;; sqrt
+    ;; Newton's method
+    ;; square iterator
+    (define sqrt-iter 
+      (lambda (guess) 
+        (if  (good-enough? guess)
+             guess
+             (sqrt-iter (improve guess))
+             )
+        )
+      )
+    ;; improve guess
+    (define improve 
+      (lambda (guess)
+        (average guess 
+                 (/ x guess)
+                 )
+        ) 
+      )
+    
+    ;; check whether satisfy 
+    (define good-enough? 
+      (lambda (guess)
+        (< (abs (- (square guess) x)) 0.0001)
+        )
+      )
+    (sqrt-iter 1.0)
+    )
+  )
+
+(display (sqrt 2))
+

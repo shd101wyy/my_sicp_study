@@ -1,0 +1,39 @@
+;; Linear Recursion and Iteration
+
+; linear recursive process for computing 6
+(define factorial 
+  (lambda (n)
+    (if (= n 0)
+        1
+        (* n (factorial (- n 1)))
+        )
+    )
+)
+;; iterative provess
+(define factorial
+  (lambda (n)
+    (define factorial-iter 
+      (lambda (n result)
+        (if (= n 0)
+            result
+            (factorial-iter (- n 1) (* result n)) 
+            )
+        )
+      )
+    (factorial-iter n 1)
+  )
+)
+
+;; 1.2.4
+(define gcd
+  (lambda (a b)
+    (if (= 0 b)
+        a
+        (gcd b (remainder a b))
+        )
+    )
+  )
+
+
+;; 1.2.6 prime number
+
