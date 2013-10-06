@@ -1,0 +1,86 @@
+;; 3.3
+;; Modeling with Mutable Data
+
+;; Exercise 3.12
+(define (append! x y)
+  (set-cdr! (last-pair x) y)
+  )
+(define (last-pair x)
+  (if (null? (cdr x))
+      x
+      (last-pair (cdr x)))
+  )
+
+;; (define x '(a b))
+;; (define y '(c d))
+;; (display (append! x y))
+;; (display x)
+
+;; Exercise 3.13
+(define (make-circle x)
+  (set-cdr! (last-pair x) x)
+  x)
+;; (define a (make-circle '(x y z)))
+;; (display (last-pair a))
+
+;;======
+;; Sharing and Identity
+
+;;======
+;; Mutation is just Assignment
+;; (define (cons x y)
+;;   (define (set-x! x v) (set! x v))
+;;   (define (set-y! y v) (set! y v))
+;;   (define (dispatch m)
+;;     (cond ((eq? m 'car) x)
+;;           ((eq? m 'cdr) y)
+;;           ((eq? m 'set-car!) set-x!)
+;;           ((eq? m 'set-cdr!) set-y!)
+;;           (else (error "Undefined Operation -- CONS" m))))
+;;   dispatch)
+;; (define (car z) (z 'car))
+;; (define (cdr z) (z 'cdr))
+;; (define (set-car! z new-value) 
+;;   ((z 'set-car!) new-value)
+;;   z)
+;; (define (set-cdr! z new-value)
+;;   ((z 'set-cdr!) new-value)
+;;   z)
+;; (define x (cons 'a 'b))
+;; (display (cdr x))
+  
+
+;; =====
+;; Representing Queues
+(define (front-ptr queue) (car queue))
+(define (rear-ptr queue) (cdr queue))
+(define (set-front-ptr queue item) (set-car! queue item))
+(define (set-rear-prt queue item) (set-cdr! queue item))
+
+(define (empty-queue? queue) (null? (front-ptr queue)))
+
+(define (make-queue) (cons '() '()))
+(define (front-queue queue) 
+  (if (empty-queue? queue)
+      (error "FRONT called with an empty queue" queue)
+      (car (front-ptr queue))))
+
+(define (insert-queue! queue item)
+  (let ((new-pair (cons item '())))
+    (cond ((empty-queue? queue)
+           (set-front-ptr! queue new-pair)
+           (set-rear-ptr! queue new-pair)
+           queue)
+          (else
+           (set-cdr! (rear-ptr queue) new-pair)
+           (set-rear-ptr! queue new-pair)
+           queue))))
+
+(define (delete-queue! queue)
+  (cond ((empty-queue? queue)
+         (error "DELETE! called with an empty queue" queue))
+        (else
+         (set-front-ptr! queue (cdr (front-ptr queue)))
+         queue)))
+;;==============
+
