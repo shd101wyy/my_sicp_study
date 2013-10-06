@@ -1,2 +1,156 @@
 ;; Section 2.3
 ;; Symbolic Data
+
+;; below is how I try to make class
+;;
+;; (define (make-class) 
+;;   (let ((a 1))
+;;     (lambda (op . arg)
+;;       (define (inc-a)
+;;         (set! a (+ a 1))
+;;         a
+;;         )
+;;       (cond
+;;        ((eq? op 'a) a)
+;;        ((eq? op 'add-a) (inc-a))    
+;;        )
+;;      )
+;;    )
+;;   )
+
+;; (define x (make-class))
+;; (display (x 'a))  ==>1
+;; (x 'add-a)
+;; (display (x 'a))  ==>2
+
+;; check whether mem item in x
+(define (memeq item x)
+  (cond ((null? x) 
+         false)
+        ((eq? (car x) item)
+         x)
+        (else
+         (memeq item (cdr x))
+         )
+        )
+  )
+
+;; (display (memq 'apple '(apple x a)))
+
+;; Symbolic differentiation
+;; (variable? e)
+;; (same-variable? v1 v2)
+;; (sum? e)
+;; (addend e)
+;; (augend e)
+;; (make-sum a1 a2)
+;; (product? e)
+;; (multiplier e)
+;; Is e a variable?
+;; Are v1 and v2 the same variable? Is e a sum?
+;; Addend of the sum e.
+;; Augend of the sum e.
+;; Construct the sum of a1 and a2. Is e a product?
+;; Multiplier of the product e.
+;; (multiplicand e) Multiplicand of the product e.
+;; (make-product m1 m2) Construct the product of m1 and m2.
+
+;; check variable is symbol?
+(define (variable? x) (symbol? x))
+;; check variables are the same
+(define (same-variable? x y)
+  (and (variable? x) (variable? y)(eq? x y)))
+
+(define (=number? x y)
+  (and (number? x) (= x y)))
+
+;; sum two exp
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2) ;; a1 is 0 => a2
+        ((=number? a2 0) a1) ;; a2 is 0 => a1
+        ((and (number? a1) (number? a2)) (+ a1 a2)) 
+        (else
+         (list '+ a1 a2)
+         )
+   ))
+;; product two exp
+(define (make-product a1 a2)
+  (cond ((=number? a1 0) 0)
+        ((=number? a2 0) 0)
+        ((=number? a1 1) a2)
+        ((=number? a2 1) a1)
+        ((and (number? a1) (number? a2)) (* a1 a2))
+        (else
+         (list '* a1 a2))
+        )
+  )
+
+;; (define (make-product x y) (list '* x y))
+
+;; sum => check whether first elem is '+
+(define (sum? x)
+  (and (pair? x) (eq? (car x) '+)))
+;; product? => check whether first elem is '*
+(define (product? x)
+  (and (pair? x) (eq? (car x) '*)))
+;; return second element
+(define (addend x) 
+  (car (cdr x)))
+;; return third element
+(define (augend x)
+  (car (cdr (cdr x))))
+(define (multiplier x)
+  (car (cdr x)))
+(define (multiplicand x)
+  (car (cdr (cdr x))))
+
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp)
+         (if (same-variable? exp var) 1 0))
+        ((sum? exp)
+         (make-sum (deriv (addend exp) var)
+                   (deriv (augend exp) car)))
+        ((product? exp)
+         (make-sum
+          (make-product (multiplier exp)
+                        (deriv (multiplicand exp) var))
+          (make-product (multiplicand exp)
+                        (deriv (multiplier exp) var))
+          ))
+        (else (error "unknown expression type -- DERIV" exp))
+        )
+  )
+
+;; (display (deriv '(+ x 3) 'x))
+;; => (+ 1 0)
+;; (display (deriv '(* x y) 'x))
+;; => y
+;; (display (deriv '(* (* x y) (+ x 3)) 'x))
+;; => (+ (* x y) (* (+ x 3) y))
+
+;; ==============
+;; 2.3.3 Representing Sets
+;; unordered set
+;; check whether x is in set
+(define (element-of-set? x set)
+  (cond ((null? set) #f)
+        ((equal? x (car set)) #t)
+        (else
+         (element-of-set? x (cdr set)))))
+
+;; if x in set, then return set
+;; add x to set
+(define (adjoin-set x set)
+  (cond ((element-of-set? x set)
+         set)
+        (else (cons x set))))
+;; check intersection
+(define (intersection-set set1 set2)
+  (cond ((or (null? set1) (null? set2))
+         '())
+        ((element-of-set? (car set1) set2)
+         (cons (car set1) (intersection-set (cdr set1) set2)))
+        (else
+         (intersection-set (cdr set1) set2))))
+
