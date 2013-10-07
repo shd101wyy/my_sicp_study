@@ -1,0 +1,95 @@
+;; Chapter 5
+;; Section 5.1
+;; a basic controller for computing gcd
+(controller
+ test-b
+   (test (op =) (reg b) (const 0))
+   (branch (label gcd-done))
+   (assign t (op rem) (reg a) (reg b))
+   (assign a (reg b))
+   (assign b (reg t))
+   (goto (label test-b))
+ gcd-done)
+
+;; if rem(remainder) is not defined
+(controller
+ test-b
+   (test (op =) (reg b) (const 0))
+   (branch (label gcd-done))
+   (assign t (reg a))
+ rem-loop
+   (test (op <) (reg t) (reg b))
+   (branch (label rem-done))
+   (assign t (op -) (reg t) (reg b))
+   (goto (label rem-loop))
+ rem-done
+   (assign a (reg b))
+   (assign b (reg t))
+   (goto (label test-b))
+gcd-done)
+
+
+
+(controller
+(assign continue (label fact-done)) ; set up final return address fact-loop
+￼￼￼￼￼(test (op =) (reg n) (const 1))
+(branch (label base-case))
+;; Set up for the recursive call by saving n and continue.
+;; Set up continue so that the computation will continue
+;; at after-fact when the subroutine returns.
+   (save continue)
+   (save n)
+   (assign n (op -) (reg n) (const 1))
+   (assign continue (label after-fact))
+   (goto (label fact-loop))
+ after-fact
+   (restore n)
+   (restore continue)
+   (assign val (op *) (reg n) (reg val))
+   (goto (reg continue))
+ base-case
+   (assign val (const 1))
+   (goto (reg continue))
+ fact-done)
+Figure 5.11: A recursive factorial machine.
+
+
+(controller
+   (assign continue (label fib-done))
+ fib-loop
+   (test (op <) (reg n) (const 2))
+   (branch (label immediate-answer))
+   ;; set up to compute Fib(n - 1)
+   (save continue)
+   (assign continue (label afterfib-n-1))
+; val now contains n(n - 1)! ; return to caller
+; base case: 1! = 1 ; return to caller
+(save n) ; save old value of n (assign n (op -) (reg n) (const 1)); clobber n to n - 1 (goto (label fib-loop)) ; perform recursive call
+afterfib-n-1 ; upon return, val contains Fib(n - 1)
+   (restore n)
+   (restore continue)
+   ;; set up to compute Fib(n - 2)
+   (assign n (op -) (reg n) (const 2))
+   (save continue)
+   (assign continue (label afterfib-n-2))
+  (save val)
+  (goto (label fib-loop))
+afterfib-n-2
+; save Fib(n - 1)
+; upon return, val contains Fib(n -
+; n now contains Fib(n - 2)
+; val now contains Fib(n - 1)
+2)
+(assign n (reg val))
+(restore val)
+(restore continue)
+(assign val
+;  Fib(n - 1) +  Fib(n - 2)
+(op +) (reg val) (reg n))
+  (goto (reg continue))
+immediate-answer
+  (assign val (reg n))
+  (goto (reg continue))
+fib-done)
+; return to caller, answer is in val
+; base case:  Fib(n) = n
