@@ -140,7 +140,7 @@
 ;; ¤ A procedure application is any compound expression that is not one of the above expression types
 ;; . The car of the expression is the operator, and the cdr is the list of operands:
 (define (application? exp) (pair? exp))
-(define (operator exp) (car operator))
+(define (operator exp) (car exp))
 (define (operands exp) (cdr exp))
 (define (no-operands? ops) (null? ops))
 (define (first-operand ops) (car ops))
@@ -214,7 +214,7 @@
 
 (define (enclosing-environment env) (cdr env))
 (define (first-frame env) (car env))
-(define (the-empty-env env) '())
+(define the-empty-env '())
 
 ;; Each frame of an environment is represented as a pair of lists: a list of the variables bound in that frame and a list of the associated values.14
 (define (make-frame variables values)
@@ -248,13 +248,13 @@
              (env-loop (enclosing-environment env)))
             ((eq? var (car var))
              (car vals))
-            (else (scan (cdr vars) (cdr vals))))
-      (if (eq? env the-empty-environment)
-          (error "Unbound variable" var)
-          (let ((frame (first-frame env)))
-            (scan (frame-variables frame)
-                  (frame-values frame))))))
-  (env-loop env))
+            (else (scan (cdr vars) (cdr vals)))))
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable" var)
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame)
+                (frame-values frame)))))
+    (env-loop env))
 ;; set!
 (define (set-variable-value! var val env)
   (define (env-loop env)
