@@ -223,9 +223,6 @@ var null$ = function(x){
         return (x.length==0)? true:nil
     return nil
 }
-var display = function(x){
-    console.log(x)
-}
 var eq$ = function(arg1, arg2){
     if (typeof(arg1) == 'string' && typeof(arg2) == 'string')  // atom
         return (arg1 == arg2) ? true:nil
@@ -260,6 +257,8 @@ var self_evaluation$ = function(exp){
     if (number$(exp))
         return exp
     else if (exp.constructor === Vector)
+        return exp
+    else if (typeof(exp) === 'boolean')
         return exp
     // else if (string$(exp))
     //    return exp
@@ -715,7 +714,75 @@ var _eval = function(x, env){ // eval function
 var _apply = function(x, env){ // apply function
     return apply(car(x), cadr(x), env)
 }
-/*
+//==== math ===
+var _abs = function(x){return new Number(Math.abs(car(x).value), FLOAT
+)}
+var _acos = function(x){return new Number(Math.acos(car(x).value), FLOAT
+)}
+var _asin = function(x){return new Number(Math.asin(car(x).value), FLOAT
+)}
+var _atan = function(x){return new Number(Math.atan(car(x).value), FLOAT
+)}
+var _ceil = function(x){return new Number(Math.ceil(car(x).value), FLOAT
+)}
+var _cos = function(x){return new Number(Math.cos(car(x).value), FLOAT
+)}
+var _exp = function(x){return new Number(Math.exp(car(x).value), FLOAT
+)}
+var _floor = function(x){return new Number(Math.floor(car(x).value), FLOAT
+)}
+var _log = function(x){return new Number(Math.log(car(x).value), FLOAT
+)}
+var _pow = function(x){var arg1 = car(x);var arg2 = cadr(x); return new Number(Math.pow(arg1.value, arg2.value), FLOAT
+)}
+var _random = function(x){return new Number(Math.random(), FLOAT
+)}
+var _round = function(x){return new Number(Math.round(car(x).value), FLOAT
+)}
+var _sin = function(x){return new Number(Math.sin(car(x).value), FLOAT
+)}
+var _sqrt = function(x){return new Number(Math.sqrt(car(x).value), FLOAT
+)}
+var _tan = function(x){return new Number(Math.tan(car(x).value), FLOAT
+)}
+
+var display = function(x){
+    var formatVectorString = function(vec){
+        if (vec.length == 0) return '[]'
+        var output = "["
+        for(var i = 0; i < vec.length; i++){
+            var x = vec[i]
+            if(typeof(x)==='string'|| typeof(x)==='boolean'){output=output+x+" "}
+            else if(x.constructor===Number){output=output+(x.value)+" "}
+            else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
+            else output = output + (formatListString(x)) + " "
+        }
+        output = output.slice(0, output.length - 1)+"]"
+        return output
+    }
+    var formatListString = function(list){
+        if (null$(list)) return '()'
+        var output = "("
+        while(!null$(list)){
+            var x = car(list)
+            if(typeof(x)==='string'|| typeof(x)==='boolean'){output=output+x+" "}
+            else if(x.constructor===Number){output=output+(x.value)+" "}
+            else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
+            else output = output + (formatListString(x)) + " "
+            list = cdr(list)
+        }
+        output = output.slice(0, output.length - 1)+")"
+        return output
+    }
+    x = car(x)
+    if(typeof(x)==='string' || typeof(x)==='boolean'){console.log(x); return}
+    if(x.constructor===Number){console.log(x.value); return}
+    if(x.constructor===Vector){console.log(formatVectorString(x.value)); return}
+    console.log(formatListString(x))
+}
+ /*
+}
+}
 =================================================
 ===================== Done ======================
 =================================================
@@ -723,6 +790,7 @@ var _apply = function(x, env){ // apply function
 // primitive procedure
 var primitive_procedure = {
     'true':true,'false':false,
+    'abs':_abs, 'acos':_acos, 'asin':_asin, 'atan':_atan, 'ceil':_ceil, 'cos':_cons, 'exp':_exp, 'floor':_floor, 'log':_log, 'pow':_pow, 'random':_random,'round':_round, 'sin':_sin, 'sqrt':_sqrt, 'tan':_tan,
     'car':_car,'cdr':_cdr,'cons':_cons,'eq?':_eq$,'atom?':_atom$,
     'null?':_null$,
     'number?':_number$,'integer?':integer$,'float?':float$,
@@ -806,10 +874,17 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
 
 
 // ======================
+// exports to Nodejs 
+if (typeof(module)!="undefined"){
+    module.exports.set_up_environment = set_up_environment
+    module.exports.Tokenize_String = Tokenize_String 
+    module.exports.ParseString =ParseString
+    module.exports.eval_sequence = eval_sequence
+    module.exports.display = display
+}
 
 
-
-
+/*
 var ENV = set_up_environment()
 // var x = "(define (add a b) (+ a b)) (add 3 4)"
 var x = "(apply + '(3 4))"
@@ -818,8 +893,7 @@ var parsed_obj = ParseString(token_list)
 
 console.log(eval_sequence(parsed_obj, ENV))
 console.log(ENV)
-
-
+*/
 
 
 
