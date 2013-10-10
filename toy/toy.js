@@ -1,7 +1,26 @@
 // minimal toy language
 
-// Tokenize String
-// tokenize input string
+
+// construct number data type
+var INT = 1
+var FLOAT = 2
+// check whether value is Int
+// check String is Number
+function isInt(value)
+{
+    var er = /^[0-9]+$/;
+    return ( er.test(value) ) ? true : false;
+}
+function isNumber(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
+function numberType(value){
+    if(!isNumber(value)) return 0;
+    if(isInt(value)) return INT
+    return FLOAT
+}
+
 var Tokenize_String = function(input_str){
     var output = []
     for(var i = 0; i < input_str.length; i++){
@@ -16,6 +35,10 @@ var Tokenize_String = function(input_str){
             output.push('(')
             output.push('vector')
         }
+        else if (input_str[i] == '{'){
+            output.push('(')
+            output.push('dictionary')
+        }
         else if (input_str[i] == '}' || input_str[i] == ']'){
             output.push(')')
         }
@@ -24,7 +47,8 @@ var Tokenize_String = function(input_str){
         */
         else if (input_str[i]=='('||input_str[i]==')'||
             input_str[i]=='['||input_str[i]==']'||
-            input_str[i]=='{'||input_str[i]=='}'){
+            input_str[i]=='{'||input_str[i]=='}'||
+            input_str[i]=='@'||input_str[i]=="'"||input_str[i]==','){ //||
             output.push(input_str[i])
         }
         /*
@@ -52,74 +76,44 @@ var Tokenize_String = function(input_str){
             output.push(')')
         }
         else { // atom or number
-            var formatSpecial = function(input_str, i, output){
-                if(input_str[i]==="@" || input_str[i]==="'" || input_str[i]===","){ // quasiquote quote unquote
-                    // check flag
-                    var flag
-                    if(input_str[i]==="'")
-                        flag = 'quote'
-                    else if (input_str[i]===',')
-                        flag = 'unquote'
-                    else
-                        flag = 'quasiquote'
-
-                    output.push('(')
-                    output.push(flag)
-                    var i = formatSpecial(input_str, i+1, output)
-                    output.push(")")
-                    return i
-                }
-                
-                // nothing
-                var start = i
-                while (i!=input_str.length && input_str[i]!=' ' 
-                       && input_str[i]!='(' && input_str[i]!=')' 
-                       && input_str[i]!='[' && input_str[i]!=']' 
-                       && input_str[i]!='{' && input_str[i]!='}' 
-                       && input_str[i]!='\n' && input_str[i]!='\t'
-                       && input_str[i]!=';'){
+            var start = i
+            while (i!=input_str.length && input_str[i]!=' ' 
+                && input_str[i]!='(' && input_str[i]!=')' 
+                && input_str[i]!='[' && input_str[i]!=']' 
+                && input_str[i]!='{' && input_str[i]!='}' 
+                && input_str[i]!='\n' && input_str[i]!='\t'
+                 && input_str[i]!=';'){
                     i = i + 1
                 }
-                output.push(input_str.slice(start, i))
-                i = i - 1
-                return i
-            }
-            i = formatSpecial(input_str, i, output)
+            output.push(input_str.slice(start, i))
+            i = i - 1
         }
     }
     return output
 }
-// construct number data type
-var INT = 1
-var FLOAT = 2
-// check whether value is Int
-// check String is Number
-function isInt(value)
-{
-    var er = /^[0-9]+$/;
-    return ( er.test(value) ) ? true : false;
-}
-function isNumber(n) {
-  return !isNaN(parseFloat(n)) && isFinite(n);
-}
 
-function numberType(value){
-    if(!isNumber(value)) return 0;
-    if(isInt(value)) return INT
-    return FLOAT
-}
-
-// =====
-// parse token list
+// parse string and generate linked list
 var ParseString = function(token_list){
     var rest;
-    // 12 -> Number(12,INT))
+
+    // 12 -> Number(12,1,INT)
     // if its type is not Number
     // return itself
     var formatSymbol = function(input_str){
         var type = numberType(input_str)
-        if (type){
-            return new Number(parseFloat(input_str), type)
+        if (type!=0){
+            var append_obj
+            if(type == INT){
+                append_obj = new Number(parseInt(input_str), INT)
+            }
+            else{
+                append_obj = new Number(parseFloat(input_str), FLOAT)
+            }
+            return append_obj
+        }
+        // check :
+        if(input_str[0] == ":" && input_str.length>1){
+            return cons('quote',cons(input_str, []))
         }
         return input_str
     }
@@ -131,24 +125,35 @@ var ParseString = function(token_list){
         }
         else if (token_list[0]=='(')
             return cons(parseList(token_list.slice(1)), parseList(rest))
-        // pair
-        else if (token_list[0]==='.'){
-            if(token_list[1]==='('){
-                return parseList(token_list.slice(2))
-            }
-            else{
-                if (token_list[2]!==')'){
-                    console.log("Error...invalid pair")
-                    return []
-                }
-                rest = token_list.slice(3)
-                return formatSymbol(token_list[1])
-            }
-        }
+        else if (token_list[0]=='[')
+            return cons(parseVector(token_list.slice(1)), parseList(rest))
+        else if (token_list[0]=='{')
+            return cons(parseDictionary(token_list.slice(1)), parseList(rest))
+        else if (token_list[0]=='@'||token_list[0]=="'"||token_list[0]==',')
+            return cons(parseSpecial(token_list.slice(1), token_list[0]), parseList(rest))
         else 
             return cons(formatSymbol(token_list[0]), parseList(token_list.slice(1)))
     }
-    
+    // parse @ ' ,
+    var parseSpecial = function(token_list, sign){
+        var flag 
+        if (sign == '@')
+            flag = 'quasiquote'
+        else if (sign == "'")
+            flag = 'quote'
+        else 
+            flag = 'unquote'
+        if (token_list[0]=='(')
+            return cons(flag, cons(parseList(token_list.slice(1))))
+        // else if (token_list[0]=='[')
+        //   return cons(flag, cons(parseVector(token_list.slice(1))))
+        // else if (token_list[0]=='{')
+        //    return cons(flag, cons(parseDictionary(token_list.slice(1))))
+        else{
+            rest = token_list.slice(1)
+            return cons(flag, cons(formatSymbol(token_list[0]), []))
+        }
+    }
     var ParseString_iter = function(token_list){
         // finish
         if(token_list.length == 0)
@@ -157,6 +162,10 @@ var ParseString = function(token_list){
         if(token_list[0]=='('){
             return cons(parseList(token_list.slice(1)), ParseString_iter(rest))
         }
+        // quasiquote quote unquote
+        else if (token_list[0]=='@'||token_list[0]=="'"||token_list[0]==','){
+            return cons(parseSpecial(token_list.slice(1), token_list[0]), ParseString_iter(rest))
+        }
         // atom
         else{
             return cons(formatSymbol(token_list[0]), ParseString_iter(token_list.slice(1)))
@@ -164,7 +173,6 @@ var ParseString = function(token_list){
     }
     return ParseString_iter(token_list)
 }
-
 // construct number
 var Number = function(value, type){
     this.value = value
@@ -182,41 +190,53 @@ var cons = function(x,y){
 }
 var car = function(x){ return x[0] }
 var cdr = function(x){ return x[1] }
-var nil = []
+var nil = false
+
+var or_ = function(x,y){
+    return 
+}
 // check whether x is number
 var number$ = function(x){
-    return (x.constructor === Number)? '#t':nil
+    return (x.constructor === Number)? true:nil
 }
-var integer$ = function(x){
-    return (x.constructor === Number && x.type === INT)? '#t':nil
-}
-var float$ = function(x){
-    return (x.constructor === Number && x.type === FLOAT) ? '#t':nil
-}
+
 // check whether x is atom
 var atom$ = function(x){ 
-    return (typeof(x) === 'string')? '#t':nil
+    return (typeof(x) === 'string') ? true:nil
 }
 var string$ = atom$
 // check whether x is vector
 var vector$ = function(x){
-    return (x.constructor === Vector)? '#t':nil
+    return (x.constructor === Vector) ? true:nil
 }
 // check whether x is pair
 var pair$ = function(x){
-    return (vector$(x) || atom$(x) || number$(x)) nil:'#t'
+    return (vector$(x) || atom$(x) || number$(x)) ? nil:true
 }
 // check whether x is symbol
 var symbol$ = function(x){
-    return (atom$(x) && !isNumber(x)) '#t':nil
+    return (atom$(x) && !isNumber(x)) ? true:nil
 }
 // check list is null?
 var null$ = function(x){
     if(pair$(x))
-        return (x.lengh==0)? '#t':nil
+        return (x.length==0)? true:nil
     return nil
 }
-
+var display = function(x){
+    console.log(x)
+}
+var eq$ = function(arg1, arg2){
+    if (typeof(arg1) == 'string' && typeof(arg2) == 'string')  // atom
+        return (arg1 == arg2) ? true:nil
+    else if (arg1.constructor == Number && arg2.construction == Number)
+        return (arg1.value == arg2.value) ? true:nil
+    else if (arg1.constructor == Vector || arg2.constructor == Vector)
+        console.log("Invalid Argument -- eq?" + arg1 + " " + arg2)
+    else if (arg1.length == 0 && arg2.length == 0)
+        return true
+    return (arg1==arg2) ? true:nil
+}
 // =====
 var eval_assignment = function(exp, env){
     set_variable_value( 
@@ -239,9 +259,11 @@ var eval_definition = function(exp, env){
 var self_evaluation$ = function(exp){
     if (number$(exp))
         return exp
-    else if (string$(exp))
+    else if (exp.constructor === Vector)
         return exp
-    return nil
+    // else if (string$(exp))
+    //    return exp
+    return false
 }
 var variable$ = symbol$
 var quoted$ = function(exp){
@@ -255,11 +277,11 @@ var cddr = function(exp){return cdr(cdr(exp))}
 var cdddr = function(exp){return cdr(cdr(cdr(exp)))}
 var cadddr = function(exp){return car(cdr(cdr(cdr(exp))))}
 
-var text_of_quotation = function(exp){return cadr(ex)}
+var text_of_quotation = function(exp){return cadr(exp)}
 var tagged_list$ = function(exp, tag){
     if(pair$(exp))
-        return eq$(car(exp), tag)
-    return nil
+        return (car(exp) === tag)
+    return false
 }
 
 var assignment$ = function(exp){
@@ -272,11 +294,18 @@ var assignment_value = function(exp){
     return caddr(exp)
 }
 
+// (define x 12)
 var definition$ = function(exp){
     return tagged_list$(exp, 'define')
 }
 var definition_variable = function(exp){
-    if (symbol$ cadr(exp))
+    if (symbol$(cadr(exp)))
+        return cadr(exp) // (define x 12) => x
+    return caadr(exp)    // (define (add a b) (+ a b)) => add
+}
+// (define x 12) => 12
+var definition_value = function(exp){
+    if (symbol$(cadr(exp)))
         return caddr(exp) // (define a 12)
     return make_lambda(cdadr(exp), cddr(exp)) // (define (add a b) (+ a b))
 }
@@ -304,7 +333,7 @@ var if_consequent = function(exp){
     return caddr(exp)
 }
 var if_alternative = function(exp){
-    if (!null$(cddrexp))
+    if (!null$(cddr(exp)))
         return cadddr(exp)
     return nil
 }
@@ -312,7 +341,12 @@ var make_if = function(predicate, consequent, alternative){
     // return list('if', predicate, consequent, alternative)
     return cons('if', cons(predicate, cons(consequent, cons(alternative, []))))
 }
-
+// judge if
+var eval_if = function(exp, env){
+    if(true$(eval(if_predicate(exp), env)))
+        return eval(if_consequent(exp), env)
+    return eval(if_alternative(exp), env) 
+}
 // ====
 var begin$ = function(exp){
     return tagged_list$(exp, 'begin')
@@ -371,7 +405,7 @@ var cond_clauses = function(exp){
     return cdr(exp)
 }
 var cond_else_clauses = function(clause){
-    return eq$(cond_predicate(clause), 'else')
+    return (cond_predicate(clause) === 'else')
 }
 var cond_predicate = function(clause){
     return car(clause)
@@ -400,12 +434,12 @@ var expand_clauses = function(clauses){
     }
 }
 var true$ = function(x){
-    return !null$(x)
+    return (x!=false) ? true:false
 }
 var false$ = function(x){
-    return null$(x)
+    return (x===false) ? false:true
 }
-// ============================
+// ========== lambda =============
 var make_procedure = function(parameters, body, env){
     return cons('procedure', cons(parameters, cons(body, cons(env, []))))
 }
@@ -421,6 +455,37 @@ var procedure_body = function(p){
 var procedure_environment = function(p){
     return cadddr(p)
 }
+// =========== macro =============
+var macro$ = function(exp){
+    return tagged_list$(exp, 'macro')
+}
+var make_macro = function(parameters, body, env){
+    return cons('macro', cons(parameters, cons(body, cons(env, []))))
+}
+var macro_parameters = function(p){ // (macro (X) @(* ,X ,X)) => (X)
+    return cadr(p)
+}
+var macro_body = function(p){       // => @(* ,X ,X)
+    return caddr(p)
+}
+var macro_environment = function(p){
+    return cadddr(p)
+}
+var eval_macro = function(body, env){ // eval macro
+    console.log("EVAL_MACRO")
+    var x = eval(body, env)
+    console.log("Enter Here")
+    console.log(x)
+    return eval(x, env)
+}
+//=============================
+var vector_operation = function(vec, arguments){
+    if (null$(cdr(arguments))){  // ([0 12] 1) => 12
+        return vec.value[car(arguments).value]
+    }
+    vec.value[car(arguments).value] = car(cdr(arguments)) // ([0 1] 0 12) => [12 1]
+    return vec
+}
 // ======
 var enclosing_environment = function(env){
     return cdr(env)
@@ -428,7 +493,7 @@ var enclosing_environment = function(env){
 var first_frame = function(env){
     return car(env)
 }
-var the_empty_env = {}
+
 /*
 var make_frame 
 var frame_variable
@@ -447,17 +512,20 @@ var add_bindint_to_frame = function(var_, val, frame){
     frame[var_] = val
 }
 var extend_environment = function(vars, vals, base_env){
-    if(length(vars) == length(vals)){
-        cons(make_frame(vars, vals), base_env)
-    }
-    else{
-        if(length(vars) < length(vals)){
-            console.log("Too many arguments supplied")
+    var extend_environment_iter = function(vars, vals, base_env, result){
+        if(null$(vars))
+            return cons(result, base_env)
+        if(null$(vals))
+            console.log("Too few arguments suppled")
+        // . 
+        if(car(vars) === '.'){
+            result[car(cdr(vars))] = vals
+            return cons(result, base_env)
         }
-        else{
-            console.log("Too few arguments supplied")
-        }
+        result[car(vars)] = car(vals)
+        return extend_environment_iter(cdr(vars), cdr(vals), base_env, result)
     }
+    return extend_environment_iter(vars, vals, base_env, {})
 }
 /*
   ({b:15},              frame
@@ -501,36 +569,165 @@ var set_up_environment = function(){
     /* var initial_env = extend_environment(primitive_procedure_name,
                                          primitive_procedure_obj,
                                          the_empty_env) */
-    var initial_env = cons(primitive_procedure, the_empty_env)
+    var initial_env = cons(primitive_procedure, [])
     return initial_env
 }
-var primitive_procedure$ = function(proc_name){
-    return (proc_name in primitive_procedure)
-}
-var primitive_implementation = function(proc_name){
-    return primitive_procedure[proc_name]
+
+//=========== primitive procedures =============================
+var primitive_procedure$ = function(proc){
+    return (typeof(proc) === 'function')
 }
 
+
+/*
+  toy primitive procedures
+  
+*/
+// (car '(1 2))
+var _car = function(x){
+    return car(car(x))
+}
+var _cdr = function(x){
+    return cdr(car(x))
+}
+var _cons = function(x){
+    return cons(car(x), car(cdr(x)))
+}
+var _null$ = function(x){
+    return null$(car(x))
+}
+var _number$ = function(x){
+    return number$(car(x))
+}
+var integer$ = function(x){
+    x = car(x)
+    return (x.constructor === Number && x.type === INT)? true:nil
+}
+var float$ = function(x){
+    x = car(x)
+    return (x.constructor === Number && x.type === FLOAT) ? true:nil
+}
+var _pair$ = function(x){
+    return pair$(car(x))
+}
+var _atom$ = function(x){
+    return atom$(car(x))
+}
+var _symbol$ = function(x){
+    return symbol$(car(x))
+}
+var _procedure$ = function(x){
+    return compound_procedure$(car(x))
+}
+var _vector$ = function(x){
+    return _vector$(car(x))
+}
+var _eq$ = function(x){
+    return eq$(car(x), car(cdr(x)))
+}
+var __add__ = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x));
+    if(arg1.constructor!==Number || arg2.constructor!==Number){
+        console.log("Invalid type parameter -- + ")
+    } 
+    if(arg1.type === INT && arg2.type === INT)
+        return new Number(arg1.value+arg2.value, INT)
+    return new Number(arg1.value+arg2.value, FLOAT)
+}
+var __sub__ = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x));
+    if(arg1.constructor!==Number || arg2.constructor!==Number){
+        console.log("Invalid type parameter -- - ")
+    } 
+    if(arg1.type === INT && arg2.type === INT)
+        return new Number(arg1.value - arg2.value, INT)
+    return new Number(arg1.value - arg2.value, FLOAT)
+}
+var __mul__ = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x));
+    if(arg1.constructor!==Number || arg2.constructor!==Number){
+        console.log("Invalid type parameter -- * ")
+    } 
+    if(arg1.type === INT && arg2.type === INT)
+        return new Number(arg1.value * arg2.value, INT)
+    return new Number(arg1.value * arg2.value, FLOAT)
+}
+var __div__ = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x));
+    if(arg1.constructor!==Number || arg2.constructor!==Number){
+        console.log("Invalid type parameter -- / ")
+    } 
+    if(arg1.type === INT && arg2.type === INT)
+        return new Number(Math.floor(arg1.value/arg2.value), INT)
+    return new Number(arg1.value/arg2.value, FLOAT)
+}
+var _lt = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x))
+    if(typeof(arg1) === 'string' && typeof(arg2) === ' string')
+        return arg1<arg2
+    if(arg1.constructor === Number && arg2.constructor === Number)
+        return arg1.value < arg2.value
+    console.log("Invalid type parameter -- <")
+    return false
+}
+var set_car = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x))
+    arg1[0] = arg2
+}
+var set_cdr = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x))
+    arg1[1] = arg2
+}
+var _vector = function(x){
+    var output = []
+    while(!null$(x)){
+        output.push(car(x))
+        x = cdr(x)
+    }
+    return new Vector(output)
+}
+var _vector_push = function(x){
+    var arg1 = car(x); var arg2 = car(cdr(x))
+    if(arg1.constructor !== Vector) {console.log("Invalid type parameter -- vector_push")}
+    arg1.value.push(arg2)
+}
+var _vector_pop = function(x){
+    if(car(x).constructor !== Vector) {console.log("Invalid type parameter -- vector_pop")}
+    return car(x).value.pop()
+}
+var _vector_length = function(x){
+    if(car(x).constructor !== Vector) {console.log("Invalid type parameter -- vector_length")}
+    return new Number(car(x).value.length, INT)
+}
+/*
+=================================================
+===================== Done ======================
+=================================================
+*/
 // primitive procedure
 var primitive_procedure = {
-    'car':car,
-    'cdr':cdr,
-    'cons':cons,
-    'null?':null$,
-    'number?':number$,'integer?':integer$,'float?':float$,
-    'pair?':pair$,'atom?':atom$,'string?':atom$,
-    'procedure?':compound_procedure$, 'symbol?':symbol$, 'vector?':vector$
-
+    'true':true,'false':false,
+    'car':_car,'cdr':_cdr,'cons':_cons,'eq?':_eq$,'atom?':_atom$,
+    'null?':_null$,
+    'number?':_number$,'integer?':integer$,'float?':float$,
+    'pair?':_pair$,'string?':_atom$,
+    'procedure?':_procedure$, 'symbol?':_symbol$, 'vector?':_vector$,
+    'display':display,
+    '+':__add__, '-':__sub__, '*':__mul__, '/':__div__,
+    '<':_lt,
+    'set_car!':set_car, 'set_cdr!':set_cdr,
+    'vector':_vector, 'vector_push':_vector_push, 'vector_pop':_vector_pop,'vector_length':_vector_length
 }
 
 // call primitive
 var apply_primitive_procedure = function(proc, args){
-    return primitive_implementation(proc)(args)
+    return proc(args)
 }
 
 // =======
 
 var eval = function(exp, env){
+    console.log(exp)
     // procedure arguments
     var list_of_values = function(exps, env){
         if(no_operand$(exps))
@@ -538,31 +735,29 @@ var eval = function(exp, env){
         return cons(eval(first_operand(exps), env),
                     list_of_values(cdr(exps), env))
     }
-    // judge if
-    var eval_if = function(exp, env){
-        if(true$(eval(if_predicate(exp), env)))
-            return eval(if_consequent(exp), env)
-        return eval(if_alternative(exp), env) 
-    }
-    if (self_evaluation$(exp))
+    if (self_evaluation$(exp))    // number vector atom list which won't be calculated
         return exp
-    else if (variables$(exp))
+    else if (variable$(exp))      // if it is variable, get its value from env
         return lookup_variable_value(exp, env)
-    else if (quoted$(exp))
+    else if (quoted$(exp))       // quote value (quote (1 2))
         return text_of_quotation(exp)
-    else if (assignment$(exp))
+    else if (assignment$(exp))   // assignment: (set! x 12)
         return eval_assignment(exp, env)
-    else if (definition$(exp))
+    else if (definition$(exp))   // definition: (define x 12)
         return eval_definition(exp, env)
-    else if (if$(exp))
+    else if (if$(exp))           // if: (if 1 2 3)
         return eval_if(exp, env)
-    else if (lambda$(exp))
+    else if (lambda$(exp))       // lambda: (lambda (a) a)
         return make_procedure(lambda_parameters(exp),
                              lambda_body(exp),
                              env)
-    else if (begin$(exp))
+    else if (macro$(exp))
+        return make_macro(lambda_parameters(exp),
+                          lambda_body(exp),
+                          env)
+    else if (begin$(exp))        // begin: (begin ...)
         return eval_sequence(begin_actions(exp), env)
-    else if (cond$(exp))
+    else if (cond$(exp))         // cond: ...
         return eval(cond_to_if(exp), env)
     else if (application$(exp))
         return apply(eval(operator(exp), env),
@@ -572,9 +767,19 @@ var eval = function(exp, env){
 }
 
 var apply = function(procedure, arguments){
-    if (primitive_procedure$(procedure))
+    if (vector$(procedure)){  // vector
+        vector_operation(procedure, arguments)
+    }
+    else if (primitive_procedure$(procedure))  // primitive
         return apply_primitive_procedure(procedure, arguments)
-    else if (compound_procedure$(procedure))
+    else if (macro$(procedure)){
+        console.log("It is macro")
+        return eval_macro(macro_body(procedure),
+                          extend_environment(macro_parameters(procedure)),
+                                             arguments,
+                                             macro_environment(procedure))
+    }
+    else if (compound_procedure$(procedure))   // lambda
         return eval_sequence(procedure_body(procedure),
                             extend_environment(procedure_parameters(procedure),
                                               arguments,
@@ -584,6 +789,38 @@ var apply = function(procedure, arguments){
 }
 
 
-
-
 // ======================
+
+
+
+
+var ENV = set_up_environment()
+var x = "(define x (macro (a) (quote (define y 12)))) (x 12) "
+var token_list = Tokenize_String(x)
+var parsed_obj = ParseString(token_list)
+
+console.log(eval_sequence(parsed_obj, ENV))
+console.log(ENV)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
