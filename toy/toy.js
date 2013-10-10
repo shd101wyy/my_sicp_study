@@ -696,6 +696,10 @@ var _vector_length = function(x){
     if(car(x).constructor !== Vector) {console.log("Invalid type parameter -- vector_length")}
     return new Number(car(x).value.length, INT)
 }
+var _macroexpand = function(x){ // (macroexpand '(square 2))
+    var macro_name = car(x)
+    var param_list = cdr(x)
+}
 /*
 =================================================
 ===================== Done ======================
@@ -725,18 +729,11 @@ var apply_primitive_procedure = function(proc, args){
 
 var eval = function(exp, env){
     console.log(exp)
-    // procedure arguments
-    var list_of_values = function(exps, env){
-        if(no_operand$(exps))
-            return []
-        return cons(eval(first_operand(exps), env),
-                    list_of_values(cdr(exps), env))
-    }
     if (self_evaluation$(exp))    // number vector atom list which won't be calculated
         return exp
     else if (variable$(exp))      // if it is variable, get its value from env
         return lookup_variable_value(exp, env)
-    else if (quoted$(exp))       // quote value (quote (1 2))
+    else if (quoted$(exp))       // quote value: (quote (1 2))
         return text_of_quotation(exp)
     else if (assignment$(exp))   // assignment: (set! x 12)
         return eval_assignment(exp, env)
@@ -748,7 +745,7 @@ var eval = function(exp, env){
         return make_procedure(lambda_parameters(exp),
                              lambda_body(exp),
                              env)
-    else if (macro$(exp))
+    else if (macro$(exp))       // macro: (macro (x) @(* ,x ,x))
         return make_macro(lambda_parameters(exp),
                           lambda_body(exp),
                           env)
@@ -757,27 +754,36 @@ var eval = function(exp, env){
     else if (cond$(exp))         // cond: ...
         return eval(cond_to_if(exp), env)
     else if (application$(exp))
-        return apply(eval(operator(exp), env),
-                     list_of_values(operands(exp), env))
+        return apply(eval(operator(exp), env), 
+                     operands(exp), env)
     else
         console.log("Unknown expression type -- EVAL" + exp)
 }
 
-var apply = function(procedure, arguments){
+var apply = function(procedure, uncalcualted_arguments, base_env){
+    // procedure arguments
+    var list_of_values = function(exps, env){
+        if(no_operand$(exps))
+            return []
+        return cons(eval(first_operand(exps), env),
+                    list_of_values(cdr(exps), env))
+    }
+
     if (vector$(procedure)){  // vector
-        vector_operation(procedure, arguments)
+        vector_operation(procedure, list_of_values(uncalcualted_arguments, base_env))
     }
     else if (primitive_procedure$(procedure))  // primitive
-        return apply_primitive_procedure(procedure, arguments)
-    else if (macro$(procedure))     // 
+        return apply_primitive_procedure(procedure, list_of_values(uncalcualted_arguments, base_env))
+    
+    else if (macro$(procedure))     // macro
         return eval_macro(macro_body(procedure),
                           extend_environment(macro_parameters(procedure),
-                                             arguments,
+                                             uncalcualted_arguments,
                                              macro_environment(procedure)))
     else if (compound_procedure$(procedure))   // lambda
         return eval_sequence(procedure_body(procedure),
                             extend_environment(procedure_parameters(procedure),
-                                              arguments,
+                                              list_of_values(uncalcualted_arguments, base_env),
                                               procedure_environment(procedure)))
     else
         console.log("Unknown procedure type -- APPLY" + procedure)
