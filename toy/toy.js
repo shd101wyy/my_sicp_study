@@ -585,7 +585,7 @@ var set_up_environment = function(){
     /* var initial_env = extend_environment(primitive_procedure_name,
                                          primitive_procedure_obj,
                                          the_empty_env) */
-    var initial_env = cons(primitive_procedure, cons(primitive_builtin_macro, []))
+    var initial_env = cons({'true':true,'false':false}, cons(primitive_procedure, cons(primitive_builtin_macro, [])))
     return initial_env
 }
 // ========== primitive builtin macro ==========================
@@ -843,7 +843,6 @@ var make_primitive_builtin_procedure = function(func_name, func){
 }
 // primitive procedure
 var primitive_procedure = {
-    'true':true,'false':false,
     'abs':_abs, 'acos':_acos, 'asin':_asin, 'atan':_atan, 'ceil':_ceil, 'cos':_cons, 'exp':_exp, 'floor':_floor, 'log':_log, 'pow':_pow, 'random':_random,'round':_round, 'sin':_sin, 'sqrt':_sqrt, 'tan':_tan,
     'car':_car,'cdr':_cdr,'cons':_cons,'eq?':_eq$,'atom?':_atom$,
     'null?':_null$,
