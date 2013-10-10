@@ -66,6 +66,7 @@ else if (argv.length==3){
 	// get content of file
 	var content_in_file=fs.readFileSync(file_name,"utf8")
 	// eval
+	var env = toy.set_up_environment()
 	var tokenized_list = toy.Tokenize_String(content_in_file)
 	var parsed_obj = toy.ParseString(tokenized_list)
 	var return_value = toy.eval_sequence(parsed_obj, env)

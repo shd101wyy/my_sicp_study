@@ -145,10 +145,8 @@ var ParseString = function(token_list){
             flag = 'unquote'
         if (token_list[0]=='(')
             return cons(flag, cons(parseList(token_list.slice(1))))
-        // else if (token_list[0]=='[')
-        //   return cons(flag, cons(parseVector(token_list.slice(1))))
-        // else if (token_list[0]=='{')
-        //    return cons(flag, cons(parseDictionary(token_list.slice(1))))
+        else if (token_list[0]=='@'||token_list[0]=="'"||token_list[0]==',')
+            return cons(flag, parseSpecial(token_list.slice(1), token_list[0]))
         else{
             rest = token_list.slice(1)
             return cons(flag, cons(formatSymbol(token_list[0]), []))
@@ -473,6 +471,27 @@ var macro_environment = function(p){
 var eval_macro = function(body, env){ // eval macro
     var x = eval_sequence(body, env)
     return eval(x, cdr(env))
+}
+//========== quasiquote ==========
+var quasiquote$ = function(exp){
+    return tagged_list$(exp, 'quasiquote')
+}
+var quasiquote_content = function(exp){
+    return cadr(exp)
+}
+var quasiquote = function(content, env){
+    if(null$(content))
+        return []
+    else if (pair$(car(content)))
+        if(car(car(content)) === 'unquote')
+            return cons(eval(car(cdr(car(content))), env),
+                        quasiquote(cdr(content), env))
+        else
+            return cons(quasiquote(car(content), env),
+                        quasiquote(cdr(content), env))
+    else
+        return cons(car(content), quasiquote(cdr(content), env))
+
 }
 //=============================
 var vector_operation = function(vec, arguments){
@@ -818,6 +837,8 @@ var eval = function(exp, env){
         return lookup_variable_value(exp, env)
     else if (quoted$(exp))       // quote value: (quote (1 2))
         return text_of_quotation(exp)
+    else if (quasiquote$(exp))
+        return quasiquote(quasiquote_content(exp), env)
     else if (assignment$(exp))   // assignment: (set! x 12)
         return eval_assignment(exp, env)
     else if (definition$(exp))   // definition: (define x 12)
