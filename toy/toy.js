@@ -144,7 +144,7 @@ var ParseString = function(token_list){
         else 
             flag = 'unquote'
         if (token_list[0]=='(')
-            return cons(flag, cons(parseList(token_list.slice(1))))
+            return cons(flag, cons(parseList(token_list.slice(1)), []))
         else if (token_list[0]=='@'||token_list[0]=="'"||token_list[0]==',')
             return cons(flag, parseSpecial(token_list.slice(1), token_list[0]))
         else{
@@ -550,6 +550,7 @@ var extend_environment = function(vars, vals, base_env){
 var lookup_variable_value = function(var_, env){
     if(null$(env)){
         console.log("Unbound variable -- "+var_)
+        return 'undefined'
     }
     var frame = car(env)
     if(var_ in frame)
@@ -560,6 +561,7 @@ var lookup_variable_value = function(var_, env){
 var set_variable_value = function(var_, val, env){
     if(null$(env)){
         console.log("Unbound variable -- "+var_)
+        return 'undefined'
     }
     var frame = car(env)
     if(var_ in frame){
@@ -798,6 +800,10 @@ var display = function(x){
     }
     var formatListString = function(list){
         if (null$(list)) return '()'
+        if(car(list)=== 'procedure') // fix print procedure bug
+            return "(procedure "+formatListString(procedure_parameters(list))+" "+formatListString(procedure_body(list))+")"
+        if(car(list)=== 'macro') // fix print macro bug
+            return "(macro "+formatListString(macro_parameters(list))+" "+formatListString(macro_body(list))+")"
         var output = "("
         while(!null$(list)){
             var x = car(list)
@@ -926,8 +932,12 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
                             extend_environment(procedure_parameters(procedure),
                                               list_of_values(uncalcualted_arguments, base_env),
                                               procedure_environment(procedure)))
-    else
+    else{
         console.log("Unknown procedure type -- APPLY" + procedure)
+        for(var i in procedure){
+            console.log(i)
+        }
+    }
 }
 
 
