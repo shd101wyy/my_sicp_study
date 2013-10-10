@@ -44,8 +44,8 @@ if (argv.length==2){
 		var tokenized_list = toy.Tokenize_String(line)
 		var parsed_obj = toy.ParseString(tokenized_list)
 		var return_value = toy.eval_sequence(parsed_obj, env)
-		
-		// toy.display( return_value )
+		// console.log(return_value)
+		toy.display( [return_value] ) // add [] because when calling display, it will get car
 		rl.setPrompt('toy> ')
 		rl.prompt()
 	})
