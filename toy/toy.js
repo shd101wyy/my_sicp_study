@@ -560,7 +560,6 @@ var define_variable = function(var_, val, env){
     add_bindint_to_frame(var_, val, frame)
     return
 }
-
 // ==========
 var set_up_environment = function(){
     /* var initial_env = extend_environment(primitive_procedure_name,
@@ -696,9 +695,25 @@ var _vector_length = function(x){
     if(car(x).constructor !== Vector) {console.log("Invalid type parameter -- vector_length")}
     return new Number(car(x).value.length, INT)
 }
-var _macroexpand = function(x){ // (macroexpand '(square 2))
-    var macro_name = car(x)
-    var param_list = cdr(x)
+var _macroexpand = function(x, env){ // (macroexpand '(square 2)), where x is (square 2)
+    x = car(x)
+    var macro_name = car(x) 
+    var arguments = cdr(x)
+    var macro = lookup_variable_value(macro_name, env)
+    if(!macro$(macro)){
+        console.log("Invalid macro for macroexpand -- " + macro_name)
+        return 'undefined'
+    }
+    var m_body = macro_body(macro)
+    var m_parameters = macro_parameters(macro)
+    var m_environment = macro_environment(macro)
+    return eval_sequence(m_body, extend_environment(m_parameters, arguments, m_environment))
+}
+var _eval = function(x, env){ // eval function
+    return eval(car(x), env)
+}
+var _apply = function(x, env){ // apply function
+    return apply(car(x), cadr(x), env)
 }
 /*
 =================================================
@@ -717,18 +732,18 @@ var primitive_procedure = {
     '+':__add__, '-':__sub__, '*':__mul__, '/':__div__,
     '<':_lt,
     'set_car!':set_car, 'set_cdr!':set_cdr,
-    'vector':_vector, 'vector_push':_vector_push, 'vector_pop':_vector_pop,'vector_length':_vector_length
+    'vector':_vector, 'vector_push':_vector_push, 'vector_pop':_vector_pop,'vector_length':_vector_length,
+    'macroexpand':_macroexpand, 'eval':_eval, 'apply':_apply
 }
 
 // call primitive
-var apply_primitive_procedure = function(proc, args){
-    return proc(args)
+var apply_primitive_procedure = function(proc, args, base_env){
+    return proc(args, base_env)
 }
 
 // =======
 
 var eval = function(exp, env){
-    console.log(exp)
     if (self_evaluation$(exp))    // number vector atom list which won't be calculated
         return exp
     else if (variable$(exp))      // if it is variable, get its value from env
@@ -752,7 +767,7 @@ var eval = function(exp, env){
     else if (begin$(exp))        // begin: (begin ...)
         return eval_sequence(begin_actions(exp), env)
     else if (cond$(exp))         // cond: ...
-        return eval(cond_to_if(exp), env)
+        return eval(cond_to_if(exp), env) 
     else if (application$(exp))
         return apply(eval(operator(exp), env), 
                      operands(exp), env)
@@ -773,7 +788,7 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
         vector_operation(procedure, list_of_values(uncalcualted_arguments, base_env))
     }
     else if (primitive_procedure$(procedure))  // primitive
-        return apply_primitive_procedure(procedure, list_of_values(uncalcualted_arguments, base_env))
+        return apply_primitive_procedure(procedure, list_of_values(uncalcualted_arguments, base_env), base_env)
     
     else if (macro$(procedure))     // macro
         return eval_macro(macro_body(procedure),
@@ -797,7 +812,7 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
 
 var ENV = set_up_environment()
 // var x = "(define (add a b) (+ a b)) (add 3 4)"
-var x = "(define x (macro (a) (quote (define y 12)))) (x 13)"
+var x = "(apply + '(3 4))"
 var token_list = Tokenize_String(x)
 var parsed_obj = ParseString(token_list)
 
