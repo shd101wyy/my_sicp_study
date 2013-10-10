@@ -583,13 +583,30 @@ var set_up_environment = function(){
     /* var initial_env = extend_environment(primitive_procedure_name,
                                          primitive_procedure_obj,
                                          the_empty_env) */
-    var initial_env = cons(primitive_procedure, [])
+    var initial_env = cons(primitive_procedure, cons(primitive_builtin_macro, []))
     return initial_env
 }
-
+// ========== primitive builtin macro ==========================
+var make_primitive_builtin_macro = function(name){return cons('primitive-builtin-macro', name)}
+var primitive_builtin_procedure = {
+    'define':'define', 'set!':'set!', 'quote':'quote','quasiquote':'quasiquote',
+    'if':'if','cond':'cond','lambda':'lambda','macro':'macro','begin':'begin'
+}
+var setup_primitive_builtin_macro = function(){
+    var x = ['define','set!','quote','quasiquote','if','cond','lambda','macro','begin']
+    var output = {}
+    for(var i = 0; i<x.length; i++){
+        output[x[i]] = make_primitive_builtin_macro(x[i])
+    }
+    return output
+}
+var primitive_builtin_macro = setup_primitive_builtin_macro()
+var primitive_builtin_macro$ = function(proc){
+    return tagged_list$(proc, 'primitive-builtin-macro')
+}
 //=========== primitive procedures =============================
 var primitive_procedure$ = function(proc){
-    return (typeof(proc) === 'function')
+    return tagged_list$(proc, 'primitive-procedure')
 }
 
 
@@ -788,8 +805,17 @@ var display = function(x){
             else if(x.constructor===Number){output=output+(x.value)+" "}
             else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
             else output = output + (formatListString(x)) + " "
-            list = cdr(list)
+            list = cdr(list) 
+            if(!pair$(list) || typeof(list)==='function'){ // pair (a . b) bug | primitive procedure bug
+                var x = list
+                if(typeof(x)==='string'|| typeof(x)==='boolean'){output=output+x+" "}
+                else if(typeof(x)==='function'){}
+                else if(x.constructor===Number){output=output+(x.value)+" "}
+                else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
+                break;
+            }
         }
+
         output = output.slice(0, output.length - 1)+")"
         return output
     }
@@ -806,6 +832,9 @@ var display = function(x){
 ===================== Done ======================
 =================================================
 */
+var make_primitive_builtin_procedure = function(func_name, func){
+    return cons('primitive-procedure', cons(func_name, func))
+}
 // primitive procedure
 var primitive_procedure = {
     'true':true,'false':false,
@@ -822,10 +851,17 @@ var primitive_procedure = {
     'vector':_vector, 'vector_push':_vector_push, 'vector_pop':_vector_pop,'vector_length':_vector_length,
     'macroexpand':_macroexpand, 'eval':_eval, 'apply':_apply
 }
+var setup_primitive_procedure = function(x){
+    for(var i in x){
+        x[i] = make_primitive_builtin_procedure(i, x[i])
+    }
+}
+setup_primitive_procedure(primitive_procedure)
+
 
 // call primitive
 var apply_primitive_procedure = function(proc, args, base_env){
-    return proc(args, base_env)
+    return cddr(proc)(args, base_env)
 }
 
 // =======
@@ -872,8 +908,9 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
         return cons(eval(first_operand(exps), env),
                     list_of_values(cdr(exps), env))
     }
-
-    if (vector$(procedure)){  // vector
+    if (primitive_builtin_macro$(procedure)) // primitive builtin macro
+        return eval(cons(cdr(procedure), uncalcualted_arguments), base_env)
+    else if (vector$(procedure)){  // vector
         vector_operation(procedure, list_of_values(uncalcualted_arguments, base_env))
     }
     else if (primitive_procedure$(procedure))  // primitive
