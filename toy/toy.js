@@ -472,11 +472,8 @@ var macro_environment = function(p){
     return cadddr(p)
 }
 var eval_macro = function(body, env){ // eval macro
-    console.log("EVAL_MACRO")
-    var x = eval(body, env)
-    console.log("Enter Here")
-    console.log(x)
-    return eval(x, env)
+    var x = eval_sequence(body, env)
+    return eval(x, cdr(env))
 }
 //=============================
 var vector_operation = function(vec, arguments){
@@ -772,13 +769,11 @@ var apply = function(procedure, arguments){
     }
     else if (primitive_procedure$(procedure))  // primitive
         return apply_primitive_procedure(procedure, arguments)
-    else if (macro$(procedure)){
-        console.log("It is macro")
+    else if (macro$(procedure))     // 
         return eval_macro(macro_body(procedure),
-                          extend_environment(macro_parameters(procedure)),
+                          extend_environment(macro_parameters(procedure),
                                              arguments,
-                                             macro_environment(procedure))
-    }
+                                             macro_environment(procedure)))
     else if (compound_procedure$(procedure))   // lambda
         return eval_sequence(procedure_body(procedure),
                             extend_environment(procedure_parameters(procedure),
@@ -795,7 +790,8 @@ var apply = function(procedure, arguments){
 
 
 var ENV = set_up_environment()
-var x = "(define x (macro (a) (quote (define y 12)))) (x 12) "
+// var x = "(define (add a b) (+ a b)) (add 3 4)"
+var x = "(define x (macro (a) (quote (define y 12)))) (x 13)"
 var token_list = Tokenize_String(x)
 var parsed_obj = ParseString(token_list)
 
