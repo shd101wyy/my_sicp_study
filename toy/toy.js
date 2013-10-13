@@ -176,6 +176,10 @@ var Number = function(value, type){
 var Vector = function(value){
     this.value = value
 }
+// construct dictionary
+var Dictionary = function(value){
+    this.value = value
+}
 
 // primitive 
 // construct List
@@ -203,6 +207,10 @@ var string$ = atom$
 var vector$ = function(x){
     return (x.constructor === Vector) ? true:nil
 }
+// check whether x is dictionary
+var dictionary$ = function(x){
+    return (x.constructor === Dictionary) ? true:nil
+}
 // check whether x is pair
 var pair$ = function(x){
     return (vector$(x) || atom$(x) || number$(x)) ? nil:true
@@ -222,8 +230,8 @@ var eq$ = function(arg1, arg2){
         return (arg1 == arg2) ? true:nil
     else if (arg1.constructor == Number && arg2.construction == Number)
         return (arg1.value == arg2.value) ? true:nil
-    else if (arg1.constructor == Vector || arg2.constructor == Vector)
-        console.log("Invalid Argument -- eq?" + arg1 + " " + arg2)
+    else if ((arg1.constructor == Vector && arg2.constructor == Vector) || (arg1.constructor == Dictionary && arg2.constructor == Dictionary))
+        return arg1 == arg2
     else if (arg1.length == 0 && arg2.length == 0)
         return true
     return (arg1==arg2) ? true:nil
@@ -250,7 +258,7 @@ var eval_definition = function(exp, env){
 var self_evaluation$ = function(exp){
     if (number$(exp))
         return exp
-    else if (exp.constructor === Vector)
+    else if (exp.constructor === Vector || exp.constructor === Dictionary)
         return exp
     else if (typeof(exp) === 'boolean')
         return exp
@@ -491,11 +499,16 @@ var quasiquote = function(content, env){
 }
 //=============================
 var vector_operation = function(vec, arguments){
-    if (null$(cdr(arguments))){  // ([0 12] 1) => 12
+    if (null$(cdr(arguments)))  // ([0 12] 1) => 12
         return vec.value[car(arguments).value]
-    }
     vec.value[car(arguments).value] = car(cdr(arguments)) // ([0 1] 0 12) => [12 1]
     return vec
+}
+var dictionary_operation = function(dict, arguments){
+    if (null$(cdr(arguments)))  // ({:a 12} :a) => 12
+        return dict.value[car(arguments)]
+    dict.value[car(arguments)] = car(cdr(arguments)) // ({:a 1} :a 12) => {:a 12}
+    return dict
 }
 // ======
 var enclosing_environment = function(env){
@@ -703,11 +716,11 @@ var _lt = function(x){
 }
 var set_car = function(x){
     var arg1 = car(x); var arg2 = car(cdr(x))
-    arg1[0] = arg2
+    arg1[0] = arg2 ; return arg1
 }
 var set_cdr = function(x){
     var arg1 = car(x); var arg2 = car(cdr(x))
-    arg1[1] = arg2
+    arg1[1] = arg2 ; return arg1
 }
 var _vector = function(x){
     var output = []
@@ -730,6 +743,25 @@ var _vector_length = function(x){
     if(car(x).constructor !== Vector) {console.log("Invalid type parameter -- vector_length")}
     return new Number(car(x).value.length, INT)
 }
+// ====== dictionary =====
+var _dictionary = function(x){
+    var output = {}
+    while(!null$(x)){
+        var key = car(x)
+        var val = car(cdr(x))
+        output[key] = val
+        x = cdr(cdr(x))
+    }
+    return new Dictionary(output)
+}
+var _dictionary$ = function(x){
+    return dictionary$(car(x))
+}
+var _dict_keys = function(x){ // get keys of dictionary... return vector
+    return new Vector(Object.keys(car(x).value))
+}
+
+// ======
 var _macroexpand = function(x, env){ // (macroexpand '(square 2)), where x is (square 2)
     x = car(x)
     var macro_name = car(x) 
@@ -783,6 +815,20 @@ var _tan = function(x){return new Number(Math.tan(car(x).value), FLOAT
 )}
 
 var display = function(x){
+    var formatDictionaryString = function(dict){
+        var output = "{"
+        for(var key in dict){
+            output = output+key+" "
+            var val = dict[key]
+            if(typeof(val)==='string'|| typeof(val)==='boolean'){output=output+val+" "}
+            else if(val.constructor===Number){output=output+(val.value)+" "}
+            else if(val.constructor===Vector){output=output+formatVectorString(val.value)+" "}
+            else if (val.constructor===Dictionary){output=output+formatDictionaryString(val.value)+" "}
+            else output = output + (formatListString(val)) + " "
+        }
+        output = output.slice(0, output.length - 1)+"}"
+        return output   
+    }
     var formatVectorString = function(vec){
         if (vec.length == 0) return '[]'
         var output = "["
@@ -790,7 +836,8 @@ var display = function(x){
             var x = vec[i]
             if(typeof(x)==='string'|| typeof(x)==='boolean'){output=output+x+" "}
             else if(x.constructor===Number){output=output+(x.value)+" "}
-            else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
+            else if(x.constructor===Vector){output=output+formatVectorString(x.value)+" "}
+            else if (x.constructor===Dictionary){output = output+formatDictionaryString(x.value)+" "}
             else output = output + (formatListString(x)) + " "
         }
         output = output.slice(0, output.length - 1)+"]"
@@ -807,7 +854,8 @@ var display = function(x){
             var x = car(list)
             if(typeof(x)==='string'|| typeof(x)==='boolean'){output=output+x+" "}
             else if(x.constructor===Number){output=output+(x.value)+" "}
-            else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
+            else if(x.constructor===Vector){output=output+formatVectorString(x.value)+" "}
+            else if(x.constructor===Dictionary){output = output+formatDictionaryString(x.value)+" "}
             else output = output + (formatListString(x)) + " "
             list = cdr(list) 
             if(!pair$(list) || typeof(list)==='function'){ // pair (a . b) bug | primitive procedure bug
@@ -815,7 +863,8 @@ var display = function(x){
                 if(typeof(x)==='string'|| typeof(x)==='boolean'){output=output+x+" "}
                 else if(typeof(x)==='function'){}
                 else if(x.constructor===Number){output=output+(x.value)+" "}
-                else if(x.constructor===Vector){output=output+formatVectorString(x)+" "}
+                else if(x.constructor===Vector){output=output+formatVectorString(x.value)+" "}
+                else if (x.constructor===Dictionary){output = output+formatDictionaryString(x.value)+" "}
                 break;
             }
         }
@@ -827,6 +876,7 @@ var display = function(x){
     if(typeof(x)==='string' || typeof(x)==='boolean'){console.log(x); return}
     if(x.constructor===Number){console.log(x.value); return}
     if(x.constructor===Vector){console.log(formatVectorString(x.value)); return}
+    if(x.constructor===Dictionary){console.log(formatDictionaryString(x.value)); return}
     console.log(formatListString(x))
 }
  /*
@@ -846,12 +896,13 @@ var primitive_procedure = {
     'null?':_null$,
     'number?':_number$,'integer?':integer$,'float?':float$,
     'pair?':_pair$,'string?':_atom$,
-    'procedure?':_procedure$, 'symbol?':_symbol$, 'vector?':_vector$,
+    'procedure?':_procedure$, 'symbol?':_symbol$, 'vector?':_vector$,'dictionary?':_dictionary$,
     'display':display,
     '+':__add__, '-':__sub__, '*':__mul__, '/':__div__,
     '<':_lt,
-    'set_car!':set_car, 'set_cdr!':set_cdr,
-    'vector':_vector, 'vector_push':_vector_push, 'vector_pop':_vector_pop,'vector_length':_vector_length,
+    'set-car!':set_car, 'set-cdr!':set_cdr,
+    'vector':_vector, 'vector-push':_vector_push, 'vector-pop':_vector_pop,'vector-length':_vector_length,
+    'dictionary':_dictionary,'dict-keys':_dict_keys,
     'macroexpand':_macroexpand, 'eval':_eval, 'apply':_apply
 }
 var setup_primitive_procedure = function(x){
@@ -914,7 +965,10 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
     if (primitive_builtin_macro$(procedure)) // primitive builtin macro
         return eval(cons(cdr(procedure), uncalcualted_arguments), base_env)
     else if (vector$(procedure)){  // vector
-        vector_operation(procedure, list_of_values(uncalcualted_arguments, base_env))
+        return vector_operation(procedure, list_of_values(uncalcualted_arguments, base_env))
+    }
+    else if (dictionary$(procedure)){ // dictionary
+        return dictionary_operation(procedure, list_of_values(uncalcualted_arguments, base_env))
     }
     else if (primitive_procedure$(procedure))  // primitive
         return apply_primitive_procedure(procedure, list_of_values(uncalcualted_arguments, base_env), base_env)
@@ -936,8 +990,12 @@ var apply = function(procedure, uncalcualted_arguments, base_env){
         }
     }
 }
-
-
+var toy_base = "(define defmacro (macro (macro_name parameters . body) (define macro_ (cons (quote macro) (cons parameters body))))) (define and (macro (arg1 arg2) (quasiquote (if (unquote arg1) (if (unquote arg2) true false) false)))) (define or (macro (arg1 arg2) (quasiquote (if (unquote arg1) true (if (unquote arg2) true false))))) (define (append list1 list2) (if (null? list1) list2 (cons (car list1) (append (cdr list1) list2)))) (define (list . args) args) (define let (macro (definitions . body) (define (get-var-names definitions) (if (null? definitions) (quote ()) (cons (car (car definitions)) (get-var-names (cdr definitions))))))) (define > (macro (arg1 arg2) (quasiquote (< (unquote arg2) (unquote arg1))))) (define (list-length l) (if (null? l) 0 (+ 1 (list-length (cdr l))))) (define (new+ . args) (define original+ +) (define (+array args) (if (null? (cdr args)) (car args) (original+ (car args) (+array (cdr args))))) (lambda (. args) (+array args))) (define (new* . args) (define original* *) (define (*array args) (if (null? (cdr args)) (car args) (original* (car args) (*array (cdr args))))) (lambda (. args) (*array args))) (define (new- . args) (define original- -) (define (-array args) (define (-array-iter args result) (if (null? (cdr args)) (original- result (car args)) (-array-iter (cdr args) (original- result (car args))))) (-array-iter (cdr args) (car args))) (lambda (. args) (if (null? (cdr args)) (original- 0 (car args)) (-array args)))) (define (new/ . args) (define original/ /) (define (/array args) (define (/array-iter args result) (if (null? (cdr args)) (original/ result (car args)) (/array-iter (cdr args) (original/ result (car args))))) (/array-iter (cdr args) (car args))) (lambda (. args) (if (null? (cdr args)) (original/ 1 (car args)) (/array args)))) (define (install-toy-arithmetic-package) (set! + (new+)) (set! - (new-)) (set! * (new*)) (set! / (new/))) (install-toy-arithmetic-package)"
+var loadToyBase = function(env){
+    var token_list = Tokenize_String(toy_base)
+    var parsed_obj = ParseString(token_list)
+    eval_sequence(parsed_obj, env)
+}
 // ======================
 // exports to Nodejs 
 if (typeof(module)!="undefined"){
@@ -946,6 +1004,7 @@ if (typeof(module)!="undefined"){
     module.exports.ParseString =ParseString
     module.exports.eval_sequence = eval_sequence
     module.exports.display = display
+    module.exports.loadToyBase = loadToyBase
 }
 
 

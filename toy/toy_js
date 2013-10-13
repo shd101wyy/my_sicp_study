@@ -40,6 +40,7 @@ if (argv.length==2){
 	rl.prompt()
 
 	var env = toy.set_up_environment()
+	toy.loadToyBase(env) // load toy base
 	rl.on('line', function(line) {
 		var tokenized_list = toy.Tokenize_String(line)
 		var parsed_obj = toy.ParseString(tokenized_list)
@@ -77,10 +78,10 @@ else if (argv.length == 4 && argv[2] == "compress"){
 	var file_name = argv[3]
 	var content_in_file = fs.readFileSync(file_name,"utf8")
 	console.log(content_in_file)
-	var parsedObj = toy.parseString(content_in_file)
-	toy.printArray(parsedObj)
+	var tokenized_list = toy.Tokenize_String(content_in_file)
+	var parsed_obj = toy.ParseString(tokenized_list)
 	console.log("\n\n\n\n            ========\n\n\n\n")
-	toy.display_(parsedObj)
+	toy.display([parsed_obj])
 	console.log("\n\n Done...")
 }
 

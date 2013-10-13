@@ -92,14 +92,13 @@
     (if (null? (cdr args)) 
         (original/ 1 (car args))
         (/array args))))
-
+;; install toy arithemtic package
 (define (install-toy-arithmetic-package)
   (set! + (new+))
   (set! - (new-))
   (set! * (new*))
   (set! / (new/)))
 (install-toy-arithmetic-package)
-
 
 
 
