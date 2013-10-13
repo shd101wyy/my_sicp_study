@@ -1,7 +1,111 @@
+;; defmacro
+(define defmacro (macro (macro_name parameters . body) (define macro_ (cons 'macro (cons parameters body))) @(define ,macro_name ,macro_ )))
+;; macro
 ;; and
 (define and 
   (macro (arg1 arg2)
     @(if ,arg1
          (if ,arg2 true false)
          false)))
-(display (macroexpand '(and 1 2)))
+;; or 
+(define or
+  (macro (arg1 arg2)
+    @(if ,arg1
+         true
+         (if ,arg2
+             true
+             false)))
+  )
+;; basic append funtion
+(define (append list1 list2)
+  (if (null? list1) list2
+      (cons (car list1) (append (cdr list1) list2)))
+  )
+(define (list . args) args)
+;; (let ((x 1)
+;;       (y 2))
+;;      (+ x y))
+;;
+(define let 
+  (macro (definitions . body)
+    (define (get-var-names definitions)
+      (if (null? definitions) '()
+          (cons (car (car definitions)) (get-var-names (cdr definitions)) ))
+      )
+    (define (get-var-values definitions)
+      (if (null? definitions) '()
+          (cons (car (cdr (car definitions))) (get-var-values (cdr definitions)) ))
+      )
+    (define vars (get-var-names definitions))
+    (define vals (get-var-values definitions))
+    (define lambda_ (cons 'lambda (cons vars body)))
+    (cons lambda_ vals)
+    ))
+;; >
+(define > (macro (arg1 arg2)
+  @(< ,arg2 ,arg1)))
+;; get length of list
+(define (list-length l)
+  (if (null? l) 0
+    (+ 1 (list-length (cdr l)))))
+
+;; new + array
+(define (new+ . args)
+  (define original+ +)
+  (define (+array args)
+      (if (null? (cdr args)) 
+      (car args)
+      (original+ (car args) (+array (cdr args)))))
+  (lambda (. args) (+array args) ))
+;; new * array
+(define (new* . args)
+  (define original* *)
+  (define (*array args)
+      (if (null? (cdr args)) 
+      (car args)
+      (original* (car args) (*array (cdr args)))))
+  (lambda (. args) (*array args)))
+
+;; new - array
+(define (new- . args)
+  (define original- -)
+  (define (-array args)
+    (define (-array-iter args result)
+      (if (null? (cdr args))
+          (original- result (car args))
+          (-array-iter (cdr args) (original- result (car args)))))
+    (-array-iter (cdr args) (car args)))
+  (lambda (. args) 
+    (if (null? (cdr args))
+      (original- 0 (car args))
+      (-array args))))
+;; new / array
+(define (new/ . args)
+  (define original/ /)
+  (define (/array args)
+    (define (/array-iter args result)
+      (if (null? (cdr args))
+          (original/ result (car args))
+          (/array-iter (cdr args) (original/ result (car args)))))
+    (/array-iter (cdr args) (car args)))
+  (lambda (. args) 
+    (if (null? (cdr args)) 
+        (original/ 1 (car args))
+        (/array args))))
+
+(define (install-toy-arithmetic-package)
+  (set! + (new+))
+  (set! - (new-))
+  (set! * (new*))
+  (set! / (new/)))
+(install-toy-arithmetic-package)
+
+
+
+
+
+
+
+
+
+

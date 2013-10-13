@@ -72,7 +72,7 @@ var Tokenize_String = function(input_str){
             }
             output.push('(')
             output.push('quote')
-            output.push(input_str.slice(start+1, i))
+            output.push(input_str.slice(start, i+1))
             output.push(')')
         }
         else { // atom or number
@@ -125,10 +125,6 @@ var ParseString = function(token_list){
         }
         else if (token_list[0]=='(')
             return cons(parseList(token_list.slice(1)), parseList(rest))
-        else if (token_list[0]=='[')
-            return cons(parseVector(token_list.slice(1)), parseList(rest))
-        else if (token_list[0]=='{')
-            return cons(parseDictionary(token_list.slice(1)), parseList(rest))
         else if (token_list[0]=='@'||token_list[0]=="'"||token_list[0]==',')
             return cons(parseSpecial(token_list.slice(1), token_list[0]), parseList(rest))
         else 
@@ -274,7 +270,7 @@ var cddr = function(exp){return cdr(cdr(exp))}
 var cdddr = function(exp){return cdr(cdr(cdr(exp)))}
 var cadddr = function(exp){return car(cdr(cdr(cdr(exp))))}
 
-var text_of_quotation = function(exp){return cadr(exp)}
+var text_of_quotation = function(exp){var content = cadr(exp);if(typeof(content)==='string'&&content[0]==='"')return content.slice(1,content.length - 1);return cadr(exp)}
 var tagged_list$ = function(exp, tag){
     if(pair$(exp))
         return (car(exp) === tag)
@@ -530,13 +526,13 @@ var extend_environment = function(vars, vals, base_env){
     var extend_environment_iter = function(vars, vals, base_env, result){
         if(null$(vars))
             return cons(result, base_env)
-        if(null$(vals))
-            console.log("Too few arguments suppled")
         // . 
         if(car(vars) === '.'){
             result[car(cdr(vars))] = vals
             return cons(result, base_env)
         }
+        if(null$(vals))
+            console.log("Too few arguments suppled")
         result[car(vars)] = car(vals)
         return extend_environment_iter(cdr(vars), cdr(vals), base_env, result)
     }
@@ -660,6 +656,8 @@ var _eq$ = function(x){
 }
 var __add__ = function(x){
     var arg1 = car(x); var arg2 = car(cdr(x));
+    if(typeof(arg1)==='string' && typeof(arg2)==='string')
+        return arg1+arg2
     if(arg1.constructor!==Number || arg2.constructor!==Number){
         console.log("Invalid type parameter -- + ")
     } 
