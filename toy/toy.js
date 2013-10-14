@@ -228,7 +228,7 @@ var null$ = function(x){
 var eq$ = function(arg1, arg2){
     if (typeof(arg1) == 'string' && typeof(arg2) == 'string')  // atom
         return (arg1 == arg2) ? true:nil
-    else if (arg1.constructor == Number && arg2.construction == Number)
+    else if (arg1.constructor == Number && arg2.constructor == Number)
         return (arg1.value == arg2.value) ? true:nil
     else if ((arg1.constructor == Vector && arg2.constructor == Vector) || (arg1.constructor == Dictionary && arg2.constructor == Dictionary))
         return arg1 == arg2
