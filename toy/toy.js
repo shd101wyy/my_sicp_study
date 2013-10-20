@@ -1,26 +1,68 @@
 // minimal toy language
 
 
-// construct number data type
-var INT = 1
-var FLOAT = 2
-// check whether value is Int
-// check String is Number
-function isInt(value)
-{
-    var er = /^[0-9]+$/;
-    return ( er.test(value) ) ? true : false;
+// =========================================================
+// =========================================================
+
+//======
+
+// 分数计算 
+// GCD
+var gcd = function(a,b){
+    if (b==0)
+        return a
+    return gcd(b,a%b)
 }
-function isNumber(n) {
-  return !isNaN(parseFloat(n)) && isFinite(n);
+// 创建分数
+// n is numerator
+// d is denominator
+// simplify the fraction 
+var make_rat = function(n,d){
+    var g = gcd(n,d)
+    return [(n/g),(d/g)]
+}
+var numer = function(rat){return rat[0]}
+var denom = function(rat){return rat[1]}
+// fraction arithematic
+var add_rat = function(x,y){
+   return make_rat( numer(x)*denom(y)+numer(y)*denom(x) , denom(x)*denom(y))
+}
+var sub_rat = function(x,y){
+    return make_rat( numer(x)*denom(y)-numer(y)*denom(x) , denom(x)*denom(y))
+}
+var mul_rat = function(x,y){
+    return make_rat(numer(x)*numer(y), denom(x)*denom(y))
+}
+var div_rat = function (x,y){
+    return make_rat(numer(x)*denom(y),denom(x)*numer(y))
+}
+// 3/5 -> 3
+var get_numerator = function(num){
+    if (num.length==0)
+        return ""
+    else if (num[0]=="/")
+        return ""
+    return num[0]+get_numerator(num.slice(1))
+}
+// 3/4 -> 4
+var get_denominator = function(num){
+    if (num.length==0)
+        return "1"
+    else if (num[0]=="/")
+        return num.slice(1)
+    return get_denominator(num.slice(1))
+}
+// format number
+// 3/4 -> ['3','4']
+var format_number = function(num){return [parseInt(get_numerator(num)),parseInt(get_denominator(num))]}
+// ['3','4'] -> 3/4
+var make_rat_string = function(rat){
+    if (rat[1]==1)
+        return str(rat[0])
+    return rat[0]+"/"+rat[1]
 }
 
-function numberType(value){
-    if(!isNumber(value)) return 0;
-    if(isInt(value)) return INT
-    return FLOAT
-}
-
+// ============
 var Tokenize_String = function(input_str){
     var output = []
     for(var i = 0; i < input_str.length; i++){
@@ -103,11 +145,14 @@ var ParseString = function(token_list){
         var type = numberType(input_str)
         if (type!=0){
             var append_obj
-            if(type == INT){
-                append_obj = new Number(parseInt(input_str), INT)
+            if(type == INT){  // number is integer
+                append_obj = new Number(parseInt(input_str), 1, INT)
             }
-            else{
-                append_obj = new Number(parseFloat(input_str), FLOAT)
+            else if (type == FLOAT){  // number is float
+                append_obj = new Number(parseFloat(input_str), 1, FLOAT)
+            }
+            else{            // number is ratio
+                append_obj = new Number(get_numerator(input_str), get_denominator(input_str), RATIO)
             }
             return append_obj
         }
@@ -166,19 +211,6 @@ var ParseString = function(token_list){
         }
     }
     return ParseString_iter(token_list)
-}
-// construct number
-var Number = function(value, type){
-    this.value = value
-    this.type = type // INT or FLOAT
-}
-// construct vector
-var Vector = function(value){
-    this.value = value
-}
-// construct dictionary
-var Dictionary = function(value){
-    this.value = value
 }
 
 // primitive 
