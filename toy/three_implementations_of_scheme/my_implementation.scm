@@ -10,8 +10,11 @@
 ;;    stack
 
 ;;    instructions
+;;    const value     ; save value in accumulator
 ;;    refer n m       ; get value from stack n, m and save to accumulator
 ;;    assign n m      ; get value from accumulator and save it to stack n m
+;;    close end_place ; create closure
+;;    return          ; end closure
 ;;    frame           ; create new frame on stack
 ;;    argument        ; add argument on accumulator to stack most on top frame
 ;;    call            ; get procedure from accumulator, pop toppest frame in stack. run function
@@ -49,27 +52,33 @@
 (define (make-stack size) ;; make stack according to size
   (let ((length 0) ;; length of stack
         (stack (make-vector size)))   ;; stack
-  (lambda (msg)
-    (cond ((eq? msg 'length) 
-             length) ;; return length
-            ((eq? msg 'stack) ;; show stack
-             stack)
-            ((eq? msg 'ref) 
-              (lambda (i) (vector-ref stack i)))
-            ((eq? msg 'push) ;; push value
-             (lambda (push-val)
-               (vector-set! stack length push-val) ;; push value
-               (set! length (+ length 1))))        ;; update length
-            ((eq? msg 'pop)    ;; pop stack
-             (set! length (- length 1))
-             vector-ref stack length)))))
+    (lambda (msg)
+      (cond ((eq? msg 'length) 
+               length) ;; return length
+              ((eq? msg 'stack) ;; show stack
+               stack)
+              ((eq? msg 'ref) 
+                (lambda (i) (vector-ref stack i)))
+              ((eq? msg 'push) ;; push value
+               (lambda (push-val)
+                  (cond ((eq? length stack)                   ;; check overflow
+                          (error "Stack Overflow"))
+                        (else 
+                          (vector-set! stack length push-val) ;; push value
+                          (set! length (+ length 1))          ;; update length
+                          ))))        
+              ((eq? msg 'pop)    ;; pop stack
+               (set! length (- length 1))
+               (vector-ref stack length))
+              ((eq? msg 'top)    ;; return top element of stack
+                (vector-ref stack (- length 1)))))))
 
 (define (stack-display stack) (display (stack 'stack))) ;; display stack
 (define (stack-push stack push_val) ((stack 'push) push_val)) ;; stack push value
 (define (stack-pop stack) ((stack 'pop)))                     ;; stack pop value
 (define (stack-length stack) (stack 'length))                 ;; return stack length
 (define (stack-ref stack index) ((stack 'ref) index))
-
+(define (stack-top stack) (stack 'top))
 ;; =====================
 
 
@@ -329,15 +338,6 @@
   ;; constants
   (else (instructions-push instructions (list 'constant exp 0)))))
 
-(define (display-instructions insts)
-  (cond ((null? insts)
-   (newline)
-   (display 'Done!))
-  (else
-   (newline)
-   (display (car insts))
-   (display-instructions (cdr insts)))))
-
 ;; create empty environment
 (define (make-empty-env) '(()))
 (define env '((x y)))
@@ -350,6 +350,57 @@
 (display "Finish Initializing Instructions")
 (newline)
 
+;; return closure value
+;; (closure-body closure-env)
+(define (make-closure end-pc environment) ;; end-pc is the return place
+  (cons end-pc environment))
+
+;; Virtual Machine that run commands
+;; instructions: Instructions that need to be run
+;; environment: used to save value
+;; acc: every calculating result is saved there
+;; pc: count
+;; stack: used to save frame
+(define (VM instructions environment acc pc stack)
+  (cond ((eq? pc (instructions-length instructions)) ;; finish running program
+          ;; return value stored in acc
+          acc)
+        (let ((inst (instructions-ref instructions pc)))
+          (let ((arg0 (vector-ref inst 0)) ;; get arg0
+                (arg1 (vector-ref inst 1)) ;; get arg1
+                (arg2 (vector-ref inst 2))) ;; get arg2
+            (cond ((eq? arg0 'constant) ;; constant
+                   (VM instructions environment arg1 (+ pc 1) stack)) ;; save constant in accumulator
+                  ((eq? arg0 'refer)    ;; get value from environment
+                    (VM instructions environment (envrionment-get environment arg1 arg2) (+ pc 1) stack)) ;; save value in accumulator
+                  ((eq? arg0 'assign)
+                    (VM instructions (environment-set! environment arg1 arg2 acc) acc (+ pc 1) stack)) ;; set value from accumulator to environment
+                  ((eq? arg0 'frame) ;; add new frame with size 256
+                    (VM instructions environment acc (+ pc 1) (stack-push stack (make-stack 64))))
+                  ((eq? arg0 'argument) ;; add value from accumulator to frame
+                    (VM instructions environment acc (+ pc 1) (stack-push (stack-top) accumulator)))
+                  ((eq? arg0 'call)  ;; call function, pop frame that stored in stack
+                    (let ((a  (VM (closure-instructions acc)   ;; run closure
+                                  (closure-environment-extend 
+                                    (closure-environment acc)
+                                    (stack-pop stack))
+                                  '()
+                                  0
+                                  stack)))
+                        (VM instructions environment a (+ pc 1) stack)))
+                  ((eq? arg0 'test) ;; test jmp
+                    (if acc ;; if pass acc run next; else jmp
+                      (VM instructions environment acc (+ pc 1) stack)
+                      (VM instructions environment acc (+ pc 1 arg1) stack)))
+                  ((eq? arg0 'jmp)  ;; jmp forward or back
+                    (VM instructions environment acc (+ pc 1 arg1) stack))
+                  ((eq? arg0 'close) ;; make closure
+                    ;; arg1 is new pc
+                    (VM instructions environment (make-closure arg1 environment) arg1 stack)
+                    )
+                  ((eq? arg0 'return) ;; end closure return value in accumulator
+                    acc)
+                  (else (error "Invalid instruction" arg0 arg1 arg2)))))))
 
 (define x '((x 3)))
 (compile-sequence x env instructions)
