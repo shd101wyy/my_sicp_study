@@ -13,7 +13,7 @@
 ;;    const value     ; save value in accumulator
 ;;    refer n m       ; get value from stack n, m and save to accumulator
 ;;    assign n m      ; get value from accumulator and save it to stack n m
-;;    close end_place ; create closure
+;;    close index-of-return ; create closure
 ;;    return          ; end closure
 ;;    frame           ; create new frame on stack
 ;;    argument        ; add argument on accumulator to stack most on top frame
@@ -249,12 +249,16 @@
 (define (lambda-body exp)
   (cdr (cdr exp)))
 (define (compile-lambda args body env instructions)
-  ;; add close
-  (instructions-push instructions (make-inst 'close 0 0))
-  ;; compile body
-  (compile-sequence body (extend-symbol-table env args) instructions)
-  ;; add return
-  (instructions-push instructions (make-inst 'return 0 0)))
+  ;; save current index, which is the index of (close arg1)
+  (let ((index (instructions-length instructions)))
+    ;; add close
+    (instructions-push instructions (make-inst 'close 0 0))
+    ;; compile body
+    (compile-sequence body (extend-symbol-table env args) instructions)
+    ;; add return
+    (instructions-push instructions (make-inst 'return 0 0))
+    ;; set (close arg1).  arg1 to index of return
+    (vector-set! (instructions-ref instructions index) 1 (- (instructions-length instructions) 1))))
 
 
 ;; compile application
@@ -338,22 +342,18 @@
   ;; constants
   (else (instructions-push instructions (list 'constant exp 0)))))
 
-;; create empty environment
-(define (make-empty-env) '(()))
-(define env '((x y)))
-
-(display "Finish Initializing Env")
-(newline)
-
-(define instructions (make-instructions))
-
-(display "Finish Initializing Instructions")
-(newline)
 
 ;; return closure value
 ;; (closure-body closure-env)
-(define (make-closure end-pc environment) ;; end-pc is the return place
-  (cons end-pc environment))
+(define (make-closure start-pc environment) ;; start-pc is where instruction starts
+  (cons start-pc environment))
+(define (closure-start-pc closure)          ;; get closure start point
+  (car closure))
+(define (closure-environment closure)       ;; get closure environment
+  (cdr closure))
+(define (closure-environment-extend base-env extend-env) ;; extend closure environment
+  (stack-push base-env extend-env)
+  base-env)
 
 ;; Virtual Machine that run commands
 ;; instructions: Instructions that need to be run
@@ -380,12 +380,12 @@
                   ((eq? arg0 'argument) ;; add value from accumulator to frame
                     (VM instructions environment acc (+ pc 1) (stack-push (stack-top) accumulator)))
                   ((eq? arg0 'call)  ;; call function, pop frame that stored in stack
-                    (let ((a  (VM (closure-instructions acc)   ;; run closure
+                    (let ((a  (VM instructions   ;; run closure
                                   (closure-environment-extend 
                                     (closure-environment acc)
                                     (stack-pop stack))
                                   '()
-                                  0
+                                  (closure-start-pc acc) // jmp to that pc
                                   stack)))
                         (VM instructions environment a (+ pc 1) stack)))
                   ((eq? arg0 'test) ;; test jmp
@@ -396,13 +396,25 @@
                     (VM instructions environment acc (+ pc 1 arg1) stack))
                   ((eq? arg0 'close) ;; make closure
                     ;; arg1 is new pc
-                    (VM instructions environment (make-closure arg1 environment) arg1 stack)
-                    )
+                    (VM instructions environment (make-closure (+ pc 1) environment) (+ 1 arg1) stack))
                   ((eq? arg0 'return) ;; end closure return value in accumulator
                     acc)
                   (else (error "Invalid instruction" arg0 arg1 arg2)))))))
 
-(define x '((x 3)))
+
+;; create empty environment
+;; (define (make-empty-env-for-compiler) '(()))
+(define env '((x y)))
+
+(display "Finish Initializing Env")
+(newline)
+
+(define instructions (make-instructions))
+
+(display "Finish Initializing Instructions")
+(newline)
+
+(define x '((lambda (a) a)))
 (compile-sequence x env instructions)
 (instructions-display instructions)
 (newline)
