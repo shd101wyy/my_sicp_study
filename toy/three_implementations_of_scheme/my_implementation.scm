@@ -70,79 +70,132 @@
 (define (stack-length stack) (stack 'length))                 ;; return stack length
 (define (stack-ref stack index) ((stack 'ref) index))
 
+;; =====================
 
 
-;; env
-;;  global    local
-;; [[x y z], [a b c]]
-(define (env-add-var-name env n var-name)
-  (define frame (stack-ref env n))
-  (if (eq? (stack-indexOf frame var-name) -1)
-    (stack-push frame var-name)
-    #f))
+;; define instructions
+;; all single instruction must have 2 arguments
+(define (make-inst arg0 arg1 arg2)
+  (define v (make-vector 3))
+  (vector-set! v 0 arg0)
+  (vector-set! v 1 arg1)
+  (vector-set! v 2 arg2)
+  v)
+(define (make-instructions)
+  (define size 50)               ;; default size 1000
+  (define length 0)                ;; i don't know how to increase size
+  (define v (make-vector 50))
+  (define (instructions-push inst) ;; push inst to instructions
+    (cond ((eq? length size)       ;; overflow
+           (error "Instructions overflow... Idk how to increase size" length size))
+          (else (vector-set! v length inst)    ;; push
+                (set! length (+ length 1)))))  ;; increase length
+  (define (dispatch msg)
+    (cond ((eq? msg 'length)       ;; return length
+            length)
+          ((eq? msg 'push)         ;; push value
+            (lambda (push_value) (instructions-push push_value)))
+          ((eq? msg 'display)
+            (display v))
+          ((eq? msg 'ref)
+            (lambda (i) (vector-ref v i)))))
+  dispatch)
+(define (instructions-push insts push-inst) ;; push
+  ((insts 'push) push-inst))
+(define (instructions-length insts)         ;; get length
+  (insts 'length))
+(define (instructions-display insts)        ;; display instructions
+  (insts 'display)) 
+(define (instructions-ref insts i)          ;; get inst from insts
+  ((insts 'ref) i))
+
+;; ========================
 
 
-;; find var in index in stack
-;; [a, b, c] find b => 1
-(define (stack-indexOf stack find-value)
-  (define (stack-indexOf stack find-value current-index)
-    (if (eq? (stack-length stack) current-index)
-      -1 ;; didn't find
-      (if (eq? find-value (stack-ref stack current-index))
-        current-index
-        (stack-indexOf stack find-value (+ current-index 1)))))
-  (stack-indexOf stack find-value 0))
+;;
+;; symbol table
+;;  local   global
+;; ((a b c) (x y z))
+(define (add-frame table frame)
+  (cons frame table))
+(define (extend-symbol-table table vars)
+  (cons vars table))
+;; check var in list
+;; eg 'a '(a b c) => 0
+;;    'c '(a b) => -1
+(define (in? var-name list)
+  (define (in?-iter var-name list count)
+    (cond ((null? list) -1) ;; didn't find
+          ((eq? var-name (car list)) count) ;; find return count
+          (else (in?-iter var-name (cdr list) (+ count 1)))))
+  (in?-iter var-name list 0))
 
-;; find var from env
-(define (lookup var-name env)
-  (define (lookup-iter var-name env i)
-    (if (= i (stack-length env))
-      (error "Undefined var" var-name)
-      (let ((index-of-var (stack-indexOf (stack-ref env i) var-name)))
-        (if (= index-of-var -1)
-          (lookup-iter var-name env (+ i 1)) ;; didn't find var in current frame
-          (cons i index-of-var)))))          ;; find var
-  (lookup-iter var-name env 0))
+;; return index of var at frame
+(define (frame-lookup-iter frame var-name count)
+  (if (null? frame)
+    -1 ;; didn't find
+    (if (eq? var-name (car frame))
+      count 
+      (frame-lookup-iter (cdr frame) var-name (- count 1)))))
+;; lookup variable in symbol table
+(define (lookup table var-name)
+  (define length-of-table (length table))
+  (define (table-lookup-iter table var-name count)
+    (if (null? table)
+      (error "cannot find var" var-name)
+      (let ((index (frame-lookup-iter (car table) var-name (- (length (car table)) 1))))
+        (if (eq? index -1) 
+          (table-lookup-iter (cdr table) var-name (- count 1))
+          (cons count index)
+          ))))
+  (table-lookup-iter table var-name (- length-of-table 1)))
 
 
 
 ;; env stack:
 ;;  global   local
 ;; [[a,b,c],[d,e,f]]
-(define (compile-lookup var-name env next)
-  (let ((n_m (lookup var-name env)))
+(define (compile-lookup var-name env instructions)
+  (let ((n_m (lookup env var-name)))
     (let ((n (car n_m))
       (m (cdr n_m)))
-    (cons (list 'refer n m) next))
-    ))
+    (instructions-push instructions (make-inst 'refer n m)))))
 
 (define (definition-variable exp)
   (cadr exp))
 (define (definition-value exp)
   (caddr exp))
 ;; compile define
-(define (compile-define var value env next)
-  (let ((compiled-value (car (compile value env '())))
-    (var-name-index (stack-indexOf (stack-ref env (- (stack-length env) 1))
-     var)))
-    (if (eq? var-name-index -1)
-        (begin 
-          (env-add-var-name env (- (stack-length env) 1) var) ;; add var-name to env
-          (cons compiled-value (cons (list 'assign (- (stack-length env) 1) (- (stack-length (stack-ref env (- (stack-length env) 1))) 1) ) next));; var-name-doesn't existed
-          ) 
-        (cons compiled-value (cons (list 'assign (- (stack-length env) 1) var-name-index) next)) ;; var-name exist
-        )))
+(define (compile-define var value env instructions)
+  ;; compile value
+  (compile value env instructions)
+  ;; get var-name-index
+  (let ((var-name-index (frame-lookup-iter (car env) var (- (length (car env)) 1))))
+     (cond ((eq? var-name-index -1)
+            ;; add var-name to env
+            (set-car! env (cons var (car env)))
+            ;; add 'assign
+            (instructions-push instructions (make-inst 'assign (- (length env) 1) (- (length (car env)) 1))))
+           (else
+            ;; var-name existed
+            (instructions-push instructions (make-inst 'assign (- (length env) 1) var-name-index))
+            ))))
 
+;; set! x 12
 (define (assignment-variable exp)
   (cadr exp))
 (define (assignment-value exp)
   (caddr exp))
-(define (compile-set! var value env next)
-  (let ((compiled-value (car (compile value env '())))
-    (n_m (lookup var env)))
-  (let ((n (car n_m))
-    (m (cdr n_m)))
-  (cons compiled-value (cons (list 'assign n m) next)))))
+;; compile set!
+(define (compile-set! var value env instructions)
+  ;; compile value
+  (compile value env instructions)
+  ;; assign
+  (let ((n_m (lookup env var)))
+    (let ((n (car n_m))
+          (m (cdr n_m)))
+      (instructions-push instructions (make-inst 'assign n m)))))
+
 
 (define (if-test exp)
   (cadr exp))
@@ -150,36 +203,49 @@
   (caddr exp))
 (define (if-alternative exp)
   (cadddr exp))
+
+;; compile and return the length of increased insts
+(define (compile-and-return-length exp env instructions)
+  (let ((old-length (instructions-length instructions)))
+    ;; compile exp
+    (compile exp env instructions)
+    ;; get new length - old-length
+    (- (instructions-length instructions) old-length)))
 ;; if 1 2 3
 ;; const 1
-;; test 3
+;; test 1
 ;; const 2
-;; jmp 2
+;; jmp 1
 ;; const 3
-(define (compile-if test consequent alternative env next)
-  (let ((compiled-test (car (compile test env '())))
-    (compiled-consequent (car (compile-sequence consequent env '())))
-    (compiled-alternative (car (compile-sequence alternative env '()))))
-  (cons compiled-test (cons (list 'test (length compiled-consequent))
-    (cons compiled-consequent
-      (cons (list 'jmp (length compiled-alternative))
-        (cons compiled-alternative next)))))))
+;; halt
+(define (compile-if test consequent alternative env instructions)
+  ;; compile test
+  (compile test env instructions)
+  (let ((index1 (instructions-length instructions))) ;; add test and save index
+    (instructions-push instructions (make-inst 'test 0 0))
+    (let ((length1 (compile-and-return-length consequent env instructions)) ;; compile consequent and return length
+          (index2 (instructions-length instructions))) ;; add jmp and save index
+      (instructions-push instructions (make-inst 'jmp 0 0))
+      (let ((length2 (compile-and-return-length alternative env instructions))) ;; compile alternative and return length
+         ;; set jmp in test which is the length1
+        (vector-set! (instructions-ref instructions index1) 1 length1)
+        ;; set steps in jmp which is length2
+        (vector-set! (instructions-ref instructions index2) 1 length2)))))
+
 
 
 ;; compile lambda(procedure)
 (define (lambda-arguments exp)
-  (cdr exp))
+  (car (cdr exp)))
 (define (lambda-body exp)
   (cdr (cdr exp)))
-(define (compile-lambda args body env next)
-  (define new-frame (make-stack 256))
-  (define (extend-args args new-frame env)
-    (if (null? args)
-      (stack-push env new-frame)
-      (begin
-        (stack-push new-frame (car args))
-        (compile-lambda (cdr args) body new-frame env))))
-  (cons '(close) (cons (compile-sequence body (extend-args args new-frame env) next) '(return))))
+(define (compile-lambda args body env instructions)
+  ;; add close
+  (instructions-push instructions (make-inst 'close 0 0))
+  ;; compile body
+  (compile-sequence body (extend-symbol-table env args) instructions)
+  ;; add return
+  (instructions-push instructions (make-inst 'return 0 0)))
 
 
 ;; compile application
@@ -195,62 +261,73 @@
 ;; argument
 ;; const 4 
 ;; argument
-(define (compile-args args env)
-  (if (null? args) 
-    '()
-    (cons (list 'argument) 
-      (cons (compile (car args) env '())
-        (compile-args (cdr args) env)))))
+(define (compile-args args env instructions) ;; compile arguments
+  (cond ((not (null? args)) ;; not null, so compile argument
+          (compile (car args) env instructions) ;; compile arg
+          (instructions-push instructions (make-inst 'argument 0 0)) ;; add argument
+          (compile-args (cdr args) env instructions))))
 
+;; compile application
+(define (compile-application applic args env instructions)
+  ;; add new frame
+  (instructions-push instructions (make-inst 'frame 0 0 ))
+  ;; compile arguments
+  (compile-args args env instructions)
+  ;; compile applic
+  (compile applic env instructions)
+  ;; call function
+  (instructions-push instructions (make-inst 'call 0 0)))
 
-(define (compile-application applic args env next)
-  (let ((compiled-args (cons '(frame) (compile-args args env)))
-    (compiled-applic (compile applic env '())))
-  (cons compiled-args (cons compiled-applic (cons '(apply) next)))))
 
 ;; compile sequence
 ;; ((define x 12) (set! x 15))
-(define (compile-sequence seq env next)
-  (define (compile-sequence-iter seq env next)
+(define (compile-sequence seq env instructions)
+  (define (compile-sequence-iter seq env instructions)
     (if (null? seq)
-      next
-      (cons (compile (car seq) env '())
-        (compile-sequence-iter (cdr seq) env next))))
-  (compile-sequence-iter seq env next))
+      (begin
+        ;; (instructions-push instructions (make-inst 'halt 0 0))
+        instructions)
+      (begin
+          (compile (car seq) env instructions)
+          (compile-sequence-iter (cdr seq) env instructions)
+        )))
+  (compile-sequence-iter seq env instructions))
 
-(define (compile exp env next)
+;; compile exp
+(define (compile exp env instructions)
   (cond ((symbol? exp)
-   (compile-lookup var-name env next))
+   (compile-lookup exp env instructions))
   ((pair? exp)
     (let ((tag (car exp)))
       (cond ((eq? tag 'quote)
-        (cons (list 'constant (cadr exp)) next))
-      ((eq? tag 'define)
-        (compile-define (definition-variable exp)
-                        (definition-value exp)
-                        env
-                        next))
-      ((eq? tag 'set!)
-        (compile-set! (assignment-variable exp)
-          (assignment-value exp)
-          env 
-          next))
-      ((eq? tag 'if)
-        (compile-if (if-test exp)
-          (if-consequent exp)
-          (if-alternative exp)
-          env
-          next))
-      ((eq? tag 'lambda)
-        (compile-lambda (lambda-arguments exp)
-          (lambda-body exp)
-          env
-          next))
-      (else (compile-application  (application-head exp)
-        (application-args exp)
-        env
-        next)))))
-  (else (cons (list 'constant exp) next))))
+              (instructions-push instructions (make-inst 'constant (cadr exp) 0)))
+            ((eq? tag 'define)
+              (compile-define (definition-variable exp)
+                              (definition-value exp)
+                              env
+                              instructions))
+            ((eq? tag 'set!)
+              (compile-set! (assignment-variable exp)
+                (assignment-value exp)
+                env 
+                instructions))
+            ((eq? tag 'if)
+              (compile-if (if-test exp)
+                (if-consequent exp)
+                (if-alternative exp)
+                env
+                instructions))
+            ((eq? tag 'lambda)
+              (compile-lambda (lambda-arguments exp)
+                (lambda-body exp)
+                env
+                instructions))
+            (else (compile-application  (application-head exp)
+              (application-args exp)
+              env
+              instructions)))))
+  ;; constants
+  (else (instructions-push instructions (list 'constant exp 0)))))
 
 (define (display-instructions insts)
   (cond ((null? insts)
@@ -262,17 +339,37 @@
    (display-instructions (cdr insts)))))
 
 ;; create empty environment
-(define (make-empty-env)
-  (define stack (make-stack 1000))
-  (define global-frame (make-stack 256))
-  (stack-push stack global-frame)
-  stack)
+(define (make-empty-env) '(()))
+(define env '((x y)))
 
-(define env (make-empty-env))
-(define x '((define x 12) (set! x 15)))
-(display-instructions (compile-sequence x env '((halt)) ) )
+(display "Finish Initializing Env")
+(newline)
+
+(define instructions (make-instructions))
+
+(display "Finish Initializing Instructions")
+(newline)
+
+
+(define x '((x 3)))
+(compile-sequence x env instructions)
+(instructions-display instructions)
 (newline)
 ;; (stack-display env)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
