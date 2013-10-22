@@ -376,6 +376,7 @@
                   ((eq? arg0 'assign)
                     (VM instructions (environment-set! environment arg1 arg2 acc) acc (+ pc 1) stack)) ;; set value from accumulator to environment
                   ((eq? arg0 'frame) ;; add new frame with size 256
+                    (stack-push stack environment) ;; save current env
                     (VM instructions environment acc (+ pc 1) (stack-push stack (make-stack 64))))
                   ((eq? arg0 'argument) ;; add value from accumulator to frame
                     (VM instructions environment acc (+ pc 1) (stack-push (stack-top) accumulator)))
@@ -385,9 +386,9 @@
                                     (closure-environment acc)
                                     (stack-pop stack))
                                   '()
-                                  (closure-start-pc acc) // jmp to that pc
+                                  (closure-start-pc acc) ;; jmp to that pc
                                   stack)))
-                        (VM instructions environment a (+ pc 1) stack)))
+                        (VM instructions (stack-pop stack) a (+ pc 1) stack))) ;; restore environment from stack
                   ((eq? arg0 'test) ;; test jmp
                     (if acc ;; if pass acc run next; else jmp
                       (VM instructions environment acc (+ pc 1) stack)
@@ -414,13 +415,21 @@
 (display "Finish Initializing Instructions")
 (newline)
 
-(define x '((lambda (a) a)))
+(define x '((define x 12) x) )
 (compile-sequence x env instructions)
 (instructions-display instructions)
 (newline)
 ;; (stack-display env)
 
+;; make environment for virtual machine
+(define (make-environment)
+  (let ((env-array (make-stack 64)) ;; can store 64 frames.. like global, local1, local2...
+        (global-frame (make-stack 256))  ;; global frame
+       )  
+    (stack-push env-array global-frame)))
 
+(define my-env (make-environment))
+(VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
 
 
 
