@@ -429,12 +429,19 @@
 (display "Finish Initializing Instructions")
 (newline)
 
-(define x '((define x 12) x) )
+(define x '((define x 12) (set! x 15) x) )
 (compile-sequence x env instructions)
 (instructions-display instructions)
 (newline)
 ;; (stack-display env)
 
+;; make global frame
+;; which holds primitive-builtin-procedures
+(define (make-global-frame)
+  (let ((s (make-stack 256)) ;; init stack as frame
+    
+    )
+    ))
 ;; make environment for virtual machine
 (define (make-environment)
   (let ((env-array (make-stack 64)) ;; can store 64 frames.. like global, local1, local2...
