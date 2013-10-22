@@ -70,6 +70,9 @@
               ((eq? msg 'pop)    ;; pop stack
                (set! length (- length 1))
                (vector-ref stack length))
+              ((eq? msg 'stack-set!)                          ;; stack set value at index
+                (lambda (i set-value) 
+                  (vector-set! stack i set-value)))
               ((eq? msg 'top)    ;; return top element of stack
                 (vector-ref stack (- length 1)))))))
 
@@ -79,6 +82,7 @@
 (define (stack-length stack) (stack 'length))                 ;; return stack length
 (define (stack-ref stack index) ((stack 'ref) index))
 (define (stack-top stack) (stack 'top))
+(define (stack-set! stack index set-value) ((stack 'stack-set!) index set-value)) ;; stack set value at index
 ;; =====================
 
 
@@ -340,7 +344,7 @@
               env
               instructions)))))
   ;; constants
-  (else (instructions-push instructions (list 'constant exp 0)))))
+  (else (instructions-push instructions (make-inst 'constant exp 0)))))
 
 
 ;; return closure value
@@ -364,17 +368,27 @@
 (define (VM instructions environment acc pc stack)
   (cond ((eq? pc (instructions-length instructions)) ;; finish running program
           ;; return value stored in acc
+          (display "End...")
+          (display acc)
           acc)
-        (let ((inst (instructions-ref instructions pc)))
+        (else (let ((inst (instructions-ref instructions pc)))
           (let ((arg0 (vector-ref inst 0)) ;; get arg0
                 (arg1 (vector-ref inst 1)) ;; get arg1
                 (arg2 (vector-ref inst 2))) ;; get arg2
+            (newline)       ;; debug use
+            (display inst)  ;;
+            (display arg0)  ;;
+            (display arg1)  ;;
+            (display arg2)  ;;
+
             (cond ((eq? arg0 'constant) ;; constant
                    (VM instructions environment arg1 (+ pc 1) stack)) ;; save constant in accumulator
                   ((eq? arg0 'refer)    ;; get value from environment
-                    (VM instructions environment (envrionment-get environment arg1 arg2) (+ pc 1) stack)) ;; save value in accumulator
+                    (VM instructions environment (environment-ref environment arg1 arg2) (+ pc 1) stack)) ;; save value in accumulator
                   ((eq? arg0 'assign)
-                    (VM instructions (environment-set! environment arg1 arg2 acc) acc (+ pc 1) stack)) ;; set value from accumulator to environment
+                    ;; set value to environment 
+                    (environment-set! environment arg1 arg2 acc)
+                    (VM instructions environment acc (+ pc 1) stack)) ;; set value from accumulator to environment
                   ((eq? arg0 'frame) ;; add new frame with size 256
                     (stack-push stack environment) ;; save current env
                     (VM instructions environment acc (+ pc 1) (stack-push stack (make-stack 64))))
@@ -400,7 +414,7 @@
                     (VM instructions environment (make-closure (+ pc 1) environment) (+ 1 arg1) stack))
                   ((eq? arg0 'return) ;; end closure return value in accumulator
                     acc)
-                  (else (error "Invalid instruction" arg0 arg1 arg2)))))))
+                  (else (error "Invalid instruction" arg0 arg1 arg2))))))))
 
 
 ;; create empty environment
@@ -425,8 +439,24 @@
 (define (make-environment)
   (let ((env-array (make-stack 64)) ;; can store 64 frames.. like global, local1, local2...
         (global-frame (make-stack 256))  ;; global frame
-       )  
-    (stack-push env-array global-frame)))
+       )
+    (define (dispatch msg)
+      (cond ((eq? msg 'ref)    ;; environment-array ref
+             (lambda (n m) (stack-ref (stack-ref env-array n) m)))
+            ((eq? msg 'set!)   ;; set value at specific frame
+              (lambda (n m set-value)
+                (stack-set! (stack-ref env-array n) m set-value)))
+            ((eq? msg 'display)
+              (stack-display env-array))
+        ))
+    (stack-push env-array global-frame) ;; push global-frame to env-array
+    dispatch))
+(define (environment-set! environment n m set-value)    ;; set value at specific frame
+  ((environment 'set!) n m set-value))       
+(define (environment-ref environment n m)               ;; ref value at specfic position n m of env-array
+  ((environment 'ref) n m))
+(define (environment-display environment)
+  (environment 'display))
 
 (define my-env (make-environment))
 (VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
