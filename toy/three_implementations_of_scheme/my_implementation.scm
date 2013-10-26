@@ -423,7 +423,7 @@
                   						(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			((builtin-procedure? acc) ;; builtin procedure
-                  				(let ((a ((get-builtin-procedure acc) (stack-pop))))     ;; run builtin procedure
+                  				(let ((a ((get-builtin-procedure acc) (stack-pop stack))))     ;; run builtin procedure
                   					(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			((vector? acc)  ;; vector
@@ -461,8 +461,8 @@
 
 ;; builtin primitive procedures
 ;; return (builtin-procedure procedure)
-;;  car cdr cons eq? 
-;;
+;;  car cdr cons eq? display
+;;  + - * / 
 ;;
 (define (builtin-procedure? v) ;; check whether value is builtin procedure
 	(and (pair? v) (eq? (car v) 'builtin-procedure)))
@@ -470,6 +470,8 @@
 	(cadr v))
 (define (make-builtin-procedure proc) ;; make builtin procedure
 	(list 'builtin-procedure proc))
+(define (satisfy-params param-num)  ;; check whether meet param num
+	)
 
 ;; 1 car
 (define _car (lambda (param-stack)
@@ -503,10 +505,43 @@
 		(display arg))))
 (define builtin-display (make-builtin-procedure _display)) ;; make display function
 
+;; 6 +
+(define _+ (lambda (param-stack)
+	(let ((arg0 (stack-ref param-stack 0))
+		  (arg1 (stack-ref param-stack 1)))
+		(+ arg0 arg1))))
+(define builtin-+ (make-builtin-procedure _+))
+
+;; 7 -
+(define _- (lambda (param-stack)
+	(let ((arg0 (stack-ref param-stack 0))
+		  (arg1 (stack-ref param-stack 1)))
+		(+ arg0 arg1))))
+(define builtin-- (make-builtin-procedure _-))
+
+
+;; 8 *
+(define _* (lambda (param-stack)
+	(let ((arg0 (stack-ref param-stack 0))
+		  (arg1 (stack-ref param-stack 1)))
+		(+ arg0 arg1))))
+(define builtin-* (make-builtin-procedure _*))
+
+
+;; 9 /
+(define _/ (lambda (param-stack)
+	(let ((arg0 (stack-ref param-stack 0))
+		  (arg1 (stack-ref param-stack 1)))
+		(+ arg0 arg1))))
+(define builtin-/ (make-builtin-procedure _/))
+
+
+
 (define builtin-procedure-name-list      ;; builtin-procedure-name-list, save builtin name and put to symbol table
-	(list 'car 'cdr 'cons 'eq? 'display))
+	(list 'car 'cdr 'cons 'eq? 'display '+ '- '* '/))
 (define builtin-procedure-list
-	(list builtin-car builtin-cdr builtin-cons builtin-eq? builtin-display)) 
+	(list builtin-car builtin-cdr builtin-cons builtin-eq? builtin-display
+		builtin-+ builtin-- builtin-* builtin-/)) 
 
 ;;
 ;;
@@ -568,8 +603,8 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (lambda (a b) b))
-	(x 12 18)
+	(define x (+ 3 4))
+	x
 		)
 	)
 (compile-sequence x env instructions)
