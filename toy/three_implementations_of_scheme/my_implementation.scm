@@ -149,14 +149,14 @@
     -1 ;; didn't find
     (if (eq? var-name (car frame))
       count 
-      (frame-lookup-iter (cdr frame) var-name (- count 1)))))
+      (frame-lookup-iter (cdr frame) var-name (+ count 1)))))
 ;; lookup variable in symbol table
 (define (lookup table var-name)
   (define length-of-table (length table))
   (define (table-lookup-iter table var-name count)
     (if (null? table)
       (error "cannot find var" var-name)
-      (let ((index (frame-lookup-iter (car table) var-name (- (length (car table)) 1))))
+      (let ((index (frame-lookup-iter (car table) var-name 0)))
         (if (eq? index -1) 
           (table-lookup-iter (cdr table) var-name (- count 1))
           (cons count index)
@@ -183,10 +183,12 @@
   ;; compile value
   (compile value env instructions)
   ;; get var-name-index
-  (let ((var-name-index (frame-lookup-iter (car env) var (- (length (car env)) 1))))
+  (let ((var-name-index (frame-lookup-iter (car env) var 0)))
      (cond ((eq? var-name-index -1)
             ;; add var-name to env
-            (set-car! env (cons var (car env)))
+            ;; this code here has problem
+            ;; (set-car! env (cons var (car env)))
+            (set-car! env (append (car env) (list var))) ;; i changed code to this here
             ;; add 'assign
             (instructions-push instructions (make-inst 'assign (- (length env) 1) (- (length (car env)) 1))))
            (else
@@ -360,10 +362,7 @@
 		#t
 		#f))
 (define (closure-environment-extend base-env extend-env) ;; extend closure environment
-  (display "Enter here 1")
-  (stack-display base-env)
   (stack-push base-env extend-env)
-  (display "Enter here 2")
   base-env)
 
 ;; Virtual Machine that run commands
@@ -376,6 +375,7 @@
   (cond ((eq? pc (instructions-length instructions)) ;; finish running program
           ;; return value stored in acc
           (display "End...")
+          (newline)
           (display acc)
           acc)
         (else (let ((inst (instructions-ref instructions pc)))
@@ -401,7 +401,6 @@
                     (stack-push stack (make-stack 64)) ;; argument frame
                     (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'argument) ;; add value from accumulator to frame
-                  	(display "Enter Here")
                   	;; push argument to argument frame
 					(stack-push (stack-top stack) acc)
                     (VM instructions environment acc (+ pc 1) stack))
@@ -419,6 +418,8 @@
                   							 '()
                   						 	(closure-start-pc acc) ;; jmp to that pc
                   						 	stack)))
+                  						(display "HERE ======== ")
+                  						(display a)
                   						(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			((builtin-procedure? acc) ;; builtin procedure
@@ -567,8 +568,8 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (lambda (a) a))
-	(x 12)
+	(define x (lambda (a b) b))
+	(x 12 18)
 		)
 	)
 (compile-sequence x env instructions)
