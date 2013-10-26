@@ -78,7 +78,7 @@
 
 (define (stack-display stack) (display (stack 'stack))) ;; display stack
 (define (stack-push stack push_val) ((stack 'push) push_val)) ;; stack push value
-(define (stack-pop stack) ((stack 'pop)))                     ;; stack pop value
+(define (stack-pop stack) (stack 'pop))                     ;; stack pop value
 (define (stack-length stack) (stack 'length))                 ;; return stack length
 (define (stack-ref stack index) ((stack 'ref) index))
 (define (stack-top stack) (stack 'top))
@@ -348,15 +348,22 @@
 
 
 ;; return closure value
-;; (closure-body closure-env)
+;; ('closure closure-body closure-env)
 (define (make-closure start-pc environment) ;; start-pc is where instruction starts
-  (cons start-pc environment))
+  (list 'closure start-pc environment))
 (define (closure-start-pc closure)          ;; get closure start point
-  (car closure))
+  (cadr closure))
 (define (closure-environment closure)       ;; get closure environment
-  (cdr closure))
+  (caddr closure))
+(define (closure? v) ;; check whether v is closure
+	(if (and (pair? v) (eq? (car v) 'closure))
+		#t
+		#f))
 (define (closure-environment-extend base-env extend-env) ;; extend closure environment
+  (display "Enter here 1")
+  (stack-display base-env)
   (stack-push base-env extend-env)
+  (display "Enter here 2")
   base-env)
 
 ;; Virtual Machine that run commands
@@ -391,18 +398,40 @@
                     (VM instructions environment acc (+ pc 1) stack)) ;; set value from accumulator to environment
                   ((eq? arg0 'frame) ;; add new frame with size 256
                     (stack-push stack environment) ;; save current env
-                    (VM instructions environment acc (+ pc 1) (stack-push stack (make-stack 64))))
+                    (stack-push stack (make-stack 64)) ;; argument frame
+                    (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'argument) ;; add value from accumulator to frame
-                    (VM instructions environment acc (+ pc 1) (stack-push (stack-top) accumulator)))
+                  	(display "Enter Here")
+                  	;; push argument to argument frame
+					(stack-push (stack-top stack) acc)
+                    (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'call)  ;; call function, pop frame that stored in stack
-                    (let ((a  (VM instructions   ;; run closure
-                                  (closure-environment-extend 
-                                    (closure-environment acc)
-                                    (stack-pop stack))
-                                  '()
-                                  (closure-start-pc acc) ;; jmp to that pc
-                                  stack)))
-                        (VM instructions (stack-pop stack) a (+ pc 1) stack))) ;; restore environment from stack
+                  	;; consider different situations
+                  	;; 1. user defined procedure(lambda)
+                  	;; 2. builtin procedures (like car cdr)
+                  	;; 3. vectors
+                  	;; 4. dictionary
+                  	(cond  	((closure? acc) ;; closure
+                  				(let ((a (VM instructions                   ;; run closure
+                  						 	(closure-environment-extend
+                  						 		(closure-environment acc)
+                  						 		(stack-pop stack))
+                  							 '()
+                  						 	(closure-start-pc acc) ;; jmp to that pc
+                  						 	stack)))
+                  						(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
+                  					))
+                  			((builtin-procedure? acc) ;; builtin procedure
+                  				(let ((a ((get-builtin-procedure acc) (stack-pop))))     ;; run builtin procedure
+                  					(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
+                  					))
+                  			((vector? acc)  ;; vector
+                  				(let ((a (apply-vector-procedure (stack-pop)))) ;; call vector related function
+                  					(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
+                  					))
+                  			(else
+                  				(error "Invalid calling"))
+                  		))
                   ((eq? arg0 'test) ;; test jmp
                     (if acc ;; if pass acc run next; else jmp
                       (VM instructions environment acc (+ pc 1) stack)
@@ -417,9 +446,116 @@
                   (else (error "Invalid instruction" arg0 arg1 arg2))))))))
 
 
+;; apply-vector-procedure
+;; ([1 2] 0) => 1
+;; ([1 2 3] 0 12) => [12 2 3]
+(define (apply-vector-procedure vec param-stack)
+	(let ((len (stack-length param-stack)))
+		(cond ((eq? len 1)
+				(vector-ref vec (stack-ref param-stack 0)))
+			  ((eq? len 2)
+			  	(vector-set! vec (stack-ref param-stack 0) (stack-ref param-stack 1)))
+			  (else
+			  	(error "Vector -- invalid parameters")))))
+
+;; builtin primitive procedures
+;; return (builtin-procedure procedure)
+;;  car cdr cons eq? 
+;;
+;;
+(define (builtin-procedure? v) ;; check whether value is builtin procedure
+	(and (pair? v) (eq? (car v) 'builtin-procedure)))
+(define (get-builtin-procedure v) ;; get proc content of builtin procedure
+	(cadr v))
+(define (make-builtin-procedure proc) ;; make builtin procedure
+	(list 'builtin-procedure proc))
+
+;; 1 car
+(define _car (lambda (param-stack)
+	(let ((arg (stack-ref param-stack 0)))
+		(car arg))))
+(define builtin-car (make-builtin-procedure _car)) ;; make car function
+
+;; 2 cdr
+(define _cdr (lambda (param-stack)
+	(let ((arg (stack-ref param-stack 0)))
+		(cdr arg))))
+(define builtin-cdr (make-builtin-procedure _cdr)) ;; make cdr function
+
+;; 3 cons
+(define _cons (lambda (param-stack)
+	(let ((arg0 (stack-ref param-stack 0))
+		  (arg1 (stack-ref param-stack 1)))
+		(cons arg0 arg1))))
+(define builtin-cons (make-builtin-procedure _cons)) ;; make cons function
+
+;; 4 eq?
+(define _eq? (lambda (param-stack)
+	(let ((arg0 (stack-ref param-stack 0))
+		  (arg1 (stack-ref param-stack 1)))
+		(eq? arg0 arg1))))
+(define builtin-eq? (make-builtin-procedure _eq?)) ;; make eq? function
+
+;; 5 display
+(define _display (lambda (param-stack)
+	(let ((arg (stack-ref param-stack 0)))
+		(display arg))))
+(define builtin-display (make-builtin-procedure _display)) ;; make display function
+
+(define builtin-procedure-name-list      ;; builtin-procedure-name-list, save builtin name and put to symbol table
+	(list 'car 'cdr 'cons 'eq? 'display))
+(define builtin-procedure-list
+	(list builtin-car builtin-cdr builtin-cons builtin-eq? builtin-display)) 
+
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;; make global frame
+;; which holds primitive-builtin-procedures
+(define (make-global-frame)
+  (define (add-builtin-procedures stack builtin-procedure-list)
+  	(if (null? builtin-procedure-list)
+  		stack
+  		(begin
+  			(stack-push stack (car builtin-procedure-list)) ;; push function to stack
+  			(add-builtin-procedures stack (cdr builtin-procedure-list)) ;; recur
+  			)))	
+  (let ((s (make-stack 256))) ;; init stack as frame
+  	;; add primitive builtin procedures
+  	(add-builtin-procedures s builtin-procedure-list)
+    ))
+
+
+;; =======================================
+;; make environment for virtual machine
+;; that environment is stack
+(define (make-environment)
+  (let ((env-array (make-stack 64)) ;; can store 64 frames.. like global, local1, local2...
+        (global-frame (make-global-frame))  ;; global frame
+       )
+    (stack-push env-array global-frame) ;; push global-frame to env-array
+    env-array))
+;; define environment operation functions
+(define (environment-set! environment n m set-value)    ;; set value at specific frame
+  (stack-set! (stack-ref environment n) m set-value))         
+(define (environment-ref environment n m)               ;; ref value at specfic position n m of env-array
+  (stack-ref (stack-ref environment n) m))
+(define (environment-display environment)
+  (stack-display environment))
+
+
+;;==============================================================================
+(define (make-symbol-table) ;; make symbol table for compile
+	(list builtin-procedure-name-list))
+
+;;==================================== TEST ====================================
 ;; create empty environment
 ;; (define (make-empty-env-for-compiler) '(()))
-(define env '((x y)))
+(define env (make-symbol-table))
 
 (display "Finish Initializing Env")
 (newline)
@@ -429,42 +565,19 @@
 (display "Finish Initializing Instructions")
 (newline)
 
-(define x '((define x 12) (set! x 15) x) )
+;; (define x '((define x (lambda (a) a)) x) )
+(define x '(
+	(define x (lambda (a) a))
+	(x 12)
+		)
+	)
 (compile-sequence x env instructions)
 (instructions-display instructions)
 (newline)
-;; (stack-display env)
 
-;; make global frame
-;; which holds primitive-builtin-procedures
-(define (make-global-frame)
-  (let ((s (make-stack 256)) ;; init stack as frame
-    
-    )
-    ))
-;; make environment for virtual machine
-(define (make-environment)
-  (let ((env-array (make-stack 64)) ;; can store 64 frames.. like global, local1, local2...
-        (global-frame (make-stack 256))  ;; global frame
-       )
-    (define (dispatch msg)
-      (cond ((eq? msg 'ref)    ;; environment-array ref
-             (lambda (n m) (stack-ref (stack-ref env-array n) m)))
-            ((eq? msg 'set!)   ;; set value at specific frame
-              (lambda (n m set-value)
-                (stack-set! (stack-ref env-array n) m set-value)))
-            ((eq? msg 'display)
-              (stack-display env-array))
-        ))
-    (stack-push env-array global-frame) ;; push global-frame to env-array
-    dispatch))
-(define (environment-set! environment n m set-value)    ;; set value at specific frame
-  ((environment 'set!) n m set-value))       
-(define (environment-ref environment n m)               ;; ref value at specfic position n m of env-array
-  ((environment 'ref) n m))
-(define (environment-display environment)
-  (environment 'display))
 
+
+;; run 
 (define my-env (make-environment))
 (VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
 
