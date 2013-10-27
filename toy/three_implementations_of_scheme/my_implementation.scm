@@ -1,10 +1,6 @@
 ;;  
 ;;    My Implementation
 
-;; 一会得吧frame垓下，不要pop
-;; call 完后pop 两次
-;; argument 得改改
-
 
 ;;    For the Compiler Machine
 ;;    exp environment 
@@ -68,9 +64,6 @@
 (define BOOLEAN 5)
 (define INTEGER 6)
 (define FLOAT 7)
-
-
-
 
 
 (define (cadr x) (car (cdr x)) )
@@ -338,6 +331,37 @@
           (compile-args (cdr args) env instructions (+ count 1)))
         (else 
           count)))
+
+;; [a,b,c,new_a,new_b,new_c] => pop get new_c copy to c, pop get new_b copy to b, pop get new_a copy to a 
+(define (pop-copy-args-for-tail-call-optimization env instructions count)
+  (cond ((eq? count 0)
+          'done)
+        (else 
+           (instructions-push instructions (make-inst 'refer (- (length env) 1) (+ (length (car env)) -1 count) )) ;; get new argument
+           (instructions-push instructions (make-inst 'assign (- (length env) 1) (- count 1))) ;; replace old argument
+           (pop-copy-args-for-tail-call-optimization env instructions (- count 1)) ;; continue recur
+          )))
+(define (compile-tail-call-args args env instructions count ) ;; count is the num of params
+  (cond ((not (null? args))
+          (compile (car args) env instructions)           ;; compile arg
+          (instructions-push instructions (make-inst 'argument 0 0))  ;; push arg to param frame
+          (compile-tail-call-args (cdr args) env instructions (+ count 1))
+         )
+        (else  ;; finish calling params
+          ;; pop argument frame and copy
+          ;; for tail call optimization
+          ;; [a,b,c,new_a,new_b,new_c] => pop get new_c copy to c, pop get new_b copy to b, pop get new_a copy to a 
+          (pop-copy-args-for-tail-call-optimization env instructions count)
+          )))
+;; Tail Call Optimization
+;; 假设还已知 该calling在procedrue的内部
+;; 并且知道那个procedure的n和m以及初始位置(close的下一位)
+  
+;; (cond ((is-tail-call applic env)
+;;       (compile-tail-call-args args env instructions 0) ;; compile arguments for tail call optimization
+;;       (instructions-push instructions-push (make-inst 'jmp 0 0)) ;; jmp back to start of procedure
+;;      )
+;;  )
 
 ;; compile application
 (define (compile-application applic args env instructions)
@@ -706,7 +730,7 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(if 1 2 (+ 3 4))
+	(if #f 2 (+ 3 4))
 		)
 )
 (compile-sequence x env instructions)
@@ -716,8 +740,8 @@
 
 
 ;; run 
-;; (define my-env (make-environment))
-;; (VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
+(define my-env (make-environment))
+(VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
 
 
 
