@@ -1,6 +1,10 @@
 ;;  
 ;;    My Implementation
 
+;; 一会得吧frame垓下，不要pop
+;; call 完后pop 两次
+;; argument 得改改
+
 
 ;;    For the Compiler Machine
 ;;    exp environment 
@@ -16,7 +20,7 @@
 ;;    close index-of-return ; create closure
 ;;    return          ; end closure
 ;;    frame           ; create new frame on stack
-;;    argument        ; add argument on accumulator to stack most on top frame
+;;    argument index  ; add argument on accumulator to toppest frame of stack according to index
 ;;    call            ; get procedure from accumulator, pop toppest frame in stack. run function
 ;;    test jmp_steps  ; get value from accumulator and test, if pass, run next
 ;;              ; else jump
@@ -46,6 +50,29 @@
 ;; ⟨core⟩ → (set! ⟨variable⟩ ⟨core⟩) 
 ;; ⟨core⟩→(call/cc ⟨core⟩)
 ;;  ⟨core⟩→(⟨core⟩ ⟨core⟩ ...)
+
+
+;; define toy date type
+;; support:
+;; ===
+;; number [integer float]
+;; list
+;; vector
+;; atom
+;; boolean
+
+(define NUMBER 1)
+(define LIST 2)
+(define VECTOR 3)
+(define ATOM 4)
+(define BOOLEAN 5)
+(define INTEGER 6)
+(define FLOAT 7)
+
+
+
+
+
 (define (cadr x) (car (cdr x)) )
 (define (caddr x) (car (cdr (cdr x)))) 
 (define (cadddr x) (car (cdr (cdr (cdr x)))))
@@ -296,18 +323,18 @@
 ;; argument
 ;; const 4 
 ;; argument
-(define (compile-args args env instructions) ;; compile arguments
+(define (compile-args args env instructions count) ;; compile arguments ;; count is index to save
   (cond ((not (null? args)) ;; not null, so compile argument
           (compile (car args) env instructions) ;; compile arg
-          (instructions-push instructions (make-inst 'argument 0 0)) ;; add argument
-          (compile-args (cdr args) env instructions))))
+          (instructions-push instructions (make-inst 'argument count 0)) ;; add argument
+          (compile-args (cdr args) env instructions (+ count 1)))))
 
 ;; compile application
 (define (compile-application applic args env instructions)
   ;; add new frame
   (instructions-push instructions (make-inst 'frame 0 0 ))
   ;; compile arguments
-  (compile-args args env instructions)
+  (compile-args args env instructions 0)
   ;; compile applic
   (compile applic env instructions)
   ;; call function
@@ -441,8 +468,8 @@
                     (stack-push stack (make-stack 64)) ;; argument frame
                     (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'argument) ;; add value from accumulator to frame
-                  	;; push argument to argument frame
-					(stack-push (stack-top stack) acc)
+                  	;; push argument to argument frame according to index
+					          (stack-set! (stack-top stack) arg1 acc)
                     (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'call)  ;; call function, pop frame that stored in stack
                   	;; consider different situations
@@ -454,10 +481,11 @@
                   				(let ((a (VM instructions                   ;; run closure
                   						 	(closure-environment-extend
                   						 		(closure-environment acc)
-                  						 		(stack-pop stack))
+                  						 		(stack-top stack))
                   							 '()
                   						 	(closure-start-pc acc) ;; jmp to that pc
                   						 	stack)))
+                  						(stack-pop stack) ;; pop argument frame
                   						(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			((builtin-procedure? acc) ;; builtin procedure
@@ -668,7 +696,8 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (quote ((1 2) 3 4)))
+	(define x (lambda (a b) (+ a b)))
+  (x 3 4)
 		)
 )
 (compile-sequence x env instructions)
