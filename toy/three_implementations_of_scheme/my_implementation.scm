@@ -1,5 +1,10 @@
 ;;  
 ;;    My Implementation
+;; 注意
+;; 虚拟机的compiler没有implement tail call optimization
+;; tail call optimization 将会在以后 bootstrap的时候implement
+;; 到时候用 toy language 写compiler生成字节码再用虚拟机运行
+;; 现在的虚拟机只是core， implement最基本的内容
 
 
 ;;    For the Compiler Machine
@@ -21,7 +26,7 @@
 ;;    test jmp_steps  ; get value from accumulator and test, if pass, run next
 ;;              ; else jump
 ;;    jmp steps       ; jmp steps
-;;	      
+;;	  goto pc         ; goto pc; this instruction may replace jmp in the future
 ;;
 ;;
 ;;
@@ -533,6 +538,8 @@
                   			(else
                   				(error "Invalid calling"))
                   		))
+                  ((eq? arg0 'goto)
+                    (VM instructions environment acc arg1 stack))
                   ((eq? arg0 'test) ;; test jmp
                     (if acc ;; if pass acc run next; else jmp
                       (VM instructions environment acc (+ pc 1) stack)
