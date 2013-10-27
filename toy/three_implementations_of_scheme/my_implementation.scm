@@ -219,22 +219,28 @@
 (define (definition-value exp)
   (caddr exp))
 ;; compile define
+;; (define x 12)  define number, list, vector primitive types
+;; (define x (lambda (a) a)) define lambda
+;;                           when define lambda, if x does not exist, then set x at first before compiling lambda
+;;                           in order to do tail call optimization(by yiyi)
 (define (compile-define var value env instructions)
-  ;; compile value
-  (compile value env instructions)
   ;; get var-name-index
   (let ((var-name-index (frame-lookup-iter (car env) var 0)))
      (cond ((eq? var-name-index -1)
-            ;; add var-name to env
-            ;; this code here has problem
-            ;; (set-car! env (cons var (car env)))
-            (set-car! env (append (car env) (list var))) ;; i changed code to this here
-            ;; add 'assign
-            (instructions-push instructions (make-inst 'assign (- (length env) 1) (- (length (car env)) 1))))
+              ;; add var-name to env
+              ;; this code here has problem
+              ;; (set-car! env (cons var (car env)))
+              (set-car! env (append (car env) (list var))) ;; i changed code to this here
+              ;; compile value
+              (compile value env instructions) ;; compile value after find var-name
+              ;; add 'assign
+              (instructions-push instructions (make-inst 'assign (- (length env) 1) (- (length (car env)) 1))))
            (else
-            ;; var-name existed
-            (instructions-push instructions (make-inst 'assign (- (length env) 1) var-name-index))
-            ))))
+              ;; compile value
+              (compile value env instructions)
+              ;; var-name existed
+              (instructions-push instructions (make-inst 'assign (- (length env) 1) var-name-index))
+              ))))
 
 ;; set! x 12
 (define (assignment-variable exp)
@@ -696,8 +702,7 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (lambda (a b) (+ a b)))
-  (x 3 4)
+	(define x (lambda (a) (x a)))
 		)
 )
 (compile-sequence x env instructions)
@@ -707,8 +712,8 @@
 
 
 ;; run 
-(define my-env (make-environment))
-(VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
+;; (define my-env (make-environment))
+;; (VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
 
 
 
