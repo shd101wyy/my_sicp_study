@@ -71,6 +71,37 @@
 (define FLOAT 7)
 
 
+(define (build-true)
+  (lambda (msg)
+    (cond ((eq? msg 'type) (build-atom 'boolean)) ;; test boolean type
+          ((eq? msg 'true?) (build-true)) ;; return true
+          ((eq? msg 'false?) (build-false)) ;; return false
+          )))
+
+(define (build-false)
+  (lambda (msg)
+    (cond ((eq? msg 'type) (build-atom 'boolean)) ;; test boolean type
+          ((eq? msg 'true?) (build-false)) ;; return false
+          ((eq? msg 'false?) (build-true)) ;; return true
+          )))
+
+(define (build-atom atom)
+  (lambda (msg)
+    (cond ((eq? msg 'type)
+           (build-atom 'atom))
+          ((eq? msg 'atom?) 
+           (build-true))
+          )))
+(define (build-number num type)
+  (lambda (msg)
+    (cond ((eq? msg 'type) (build-atom 'number))
+          ((eq? msg 'number?)
+            (make-true))
+          ((eq? msg 'integer?)
+            (if (eq? INTEGER type)
+              (make-true)
+              (make-false))))))
+
 (define (cadr x) (car (cdr x)) )
 (define (caddr x) (car (cdr (cdr x)))) 
 (define (cadddr x) (car (cdr (cdr (cdr x)))))
