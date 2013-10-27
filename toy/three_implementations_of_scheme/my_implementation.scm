@@ -292,9 +292,9 @@
       (instructions-push instructions (make-inst 'jmp 0 0))
       (let ((length2 (compile-and-return-length alternative env instructions))) ;; compile alternative and return length
          ;; set jmp in test which is the length1
-        (vector-set! (instructions-ref instructions index1) 1 length1)
+        (vector-set! (instructions-ref instructions index1) 1 (+ length1 2))
         ;; set steps in jmp which is length2
-        (vector-set! (instructions-ref instructions index2) 1 length2)))))
+        (vector-set! (instructions-ref instructions index2) 1 (+ length2 1))))))
 
 
 
@@ -512,9 +512,9 @@
                   ((eq? arg0 'test) ;; test jmp
                     (if acc ;; if pass acc run next; else jmp
                       (VM instructions environment acc (+ pc 1) stack)
-                      (VM instructions environment acc (+ pc 1 arg1) stack)))
+                      (VM instructions environment acc (+ pc arg1) stack)))
                   ((eq? arg0 'jmp)  ;; jmp forward or back
-                    (VM instructions environment acc (+ pc 1 arg1) stack))
+                    (VM instructions environment acc (+ pc arg1) stack))
                   ((eq? arg0 'close) ;; make closure
                     ;; arg1 is new pc
                     (VM instructions environment (make-closure (+ pc 1) environment) (+ 1 arg1) stack))
@@ -706,7 +706,7 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (lambda (a) (x a)))
+	(if 1 2 (+ 3 4))
 		)
 )
 (compile-sequence x env instructions)
