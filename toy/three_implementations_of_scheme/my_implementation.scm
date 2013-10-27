@@ -20,7 +20,7 @@
 ;;    close index-of-return ; create closure
 ;;    return          ; end closure
 ;;    frame           ; create new frame on stack
-;;    argument index  ; add argument on accumulator to toppest frame of stack according to index
+;;    argument        ; push argument on accumulator to toppest frame of stack
 ;;    call            ; get procedure from accumulator, pop toppest frame in stack. run function
 ;;    test jmp_steps  ; get value from accumulator and test, if pass, run next
 ;;              ; else jump
@@ -329,11 +329,15 @@
 ;; argument
 ;; const 4 
 ;; argument
+
+;; this function return the num of arguments
 (define (compile-args args env instructions count) ;; compile arguments ;; count is index to save
   (cond ((not (null? args)) ;; not null, so compile argument
           (compile (car args) env instructions) ;; compile arg
-          (instructions-push instructions (make-inst 'argument count 0)) ;; add argument
-          (compile-args (cdr args) env instructions (+ count 1)))))
+          (instructions-push instructions (make-inst 'argument 0 0)) ;; add argument
+          (compile-args (cdr args) env instructions (+ count 1)))
+        (else 
+          count)))
 
 ;; compile application
 (define (compile-application applic args env instructions)
@@ -475,7 +479,7 @@
                     (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'argument) ;; add value from accumulator to frame
                   	;; push argument to argument frame according to index
-					          (stack-set! (stack-top stack) arg1 acc)
+					          (stack-push (stack-top stack) acc)
                     (VM instructions environment acc (+ pc 1) stack))
                   ((eq? arg0 'call)  ;; call function, pop frame that stored in stack
                   	;; consider different situations
