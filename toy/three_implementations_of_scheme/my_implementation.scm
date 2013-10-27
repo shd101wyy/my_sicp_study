@@ -21,7 +21,13 @@
 ;;    test jmp_steps  ; get value from accumulator and test, if pass, run next
 ;;              ; else jump
 ;;    jmp steps       ; jmp steps
-;;    
+;;	      
+;;
+;;
+;;
+;;
+;;
+;;
 
 ;; closure .  procedure_body procedure_arguments procedure_env
 ;;
@@ -155,7 +161,8 @@
   (define length-of-table (length table))
   (define (table-lookup-iter table var-name count)
     (if (null? table)
-      (error "cannot find var" var-name)
+      (cons -1 -1) ;; cannot find var
+      ;; (error "cannot find var" var-name)
       (let ((index (frame-lookup-iter (car table) var-name 0)))
         (if (eq? index -1) 
           (table-lookup-iter (cdr table) var-name (- count 1))
@@ -171,8 +178,14 @@
 (define (compile-lookup var-name env instructions)
   (let ((n_m (lookup env var-name)))
     (let ((n (car n_m))
-      (m (cdr n_m)))
-    (instructions-push instructions (make-inst 'refer n m)))))
+      	  (m (cdr n_m)))
+    (if (eq? n -1) ;; var does not exist
+    	(begin  ;; create space for that var, and set its value to 'undefined
+    		(set-car! env (append (car env) (list var-name))) ;; extend env
+    		(instructions-push instructions (make-inst 'refer (- (length env) 1) (- (length (car env)) 1) ))
+    		)
+    	(instructions-push instructions (make-inst 'refer n m)) ;; var exists
+    	))))
 
 (define (definition-variable exp)
   (cadr exp))
@@ -209,7 +222,10 @@
   (let ((n_m (lookup env var)))
     (let ((n (car n_m))
           (m (cdr n_m)))
-      (instructions-push instructions (make-inst 'assign n m)))))
+        (if (eq? n -1) ;; if eq -1, then it means var does not exist
+        	(error "cannot find var" var)  ;; var does not exist
+        	(instructions-push instructions (make-inst 'assign n m)) ;; var exist
+        	))))
 
 
 (define (if-test exp)
@@ -315,7 +331,7 @@
 ;; compile exp
 (define (compile exp env instructions)
   (cond ((symbol? exp)
-   (compile-lookup exp env instructions))
+   (compile-lookup exp env instructions)) ;; if symbol doesn't exist(free variable), then create new var for that symbol whos value is 'undefined
   ((pair? exp)
     (let ((tag (car exp)))
       (cond ((eq? tag 'quote)
@@ -418,8 +434,6 @@
                   							 '()
                   						 	(closure-start-pc acc) ;; jmp to that pc
                   						 	stack)))
-                  						(display "HERE ======== ")
-                  						(display a)
                   						(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			((builtin-procedure? acc) ;; builtin procedure
@@ -470,8 +484,18 @@
 	(cadr v))
 (define (make-builtin-procedure proc) ;; make builtin procedure
 	(list 'builtin-procedure proc))
-(define (satisfy-params param-num)  ;; check whether meet param num
-	)
+
+;; this function may be used in the future
+(define (satisfy-params param-stack param-num)  ;; check whether meet param num
+	(let ((len (stack-length param-stack)))
+		(cond ((eq? param-num len)
+				#t)
+			  ((> len param-num)
+			  	(error "Too many parameters provided")
+			  	#f)
+			  (else
+			  	(error "Too few parameters provided")
+			  	#f))))
 
 ;; 1 car
 (define _car (lambda (param-stack)
@@ -603,9 +627,8 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (+ 3 4))
-	x
-		)
+	(define x (quote (1 2 3)))
+	(set! y 12))
 	)
 (compile-sequence x env instructions)
 (instructions-display instructions)
@@ -614,8 +637,8 @@
 
 
 ;; run 
-(define my-env (make-environment))
-(VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
+;; (define my-env (make-environment))
+;; (VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
 
 
 
