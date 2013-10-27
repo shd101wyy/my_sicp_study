@@ -331,18 +331,21 @@
 ;; compile list
 ;; without calculation
 (define (compile-list exp env instructions)
+	(instructions-push instructions (make-inst 'frame 0 0)) ;; make argument frame
+	(define (compile-list-iter exp env instructions)
 		(cond ((null? exp)       ;; done
-				(instructions-push instructions (make-inst 'ref 9 0)) ;; call list procedure
+				(instructions-push instructions (make-inst 'refer 0 9)) ;; call list procedure
 				(instructions-push instructions (make-inst 'call 0 0)))
 			  ((pair? (car exp)) ;; list 
 			  	(compile-list (car exp) env instructions)        ;; compile that list
 			  	(instructions-push instructions (make-inst 'argument 0 0))          ;; push as argument
-			  	(compile-list (cdr exp) env instructions))  ;; continue recur
+			  	(compile-list-iter (cdr exp) env instructions))  ;; continue recur
 			  (else 
 			  	(instructions-push instructions (make-inst 'constant (car exp) 0))  ;; read constant
 			  	(instructions-push instructions (make-inst 'argument 0 0))          ;; push as argument
-			  	(compile-list (cdr exp) env instructions)  ;; continue recur
+			  	(compile-list-iter (cdr exp) env instructions)  ;; continue recur
 			  	)))
+	(compile-list-iter exp env instructions))
 
 ;; compile exp
 (define (compile exp env instructions)
@@ -675,8 +678,8 @@
 
 
 ;; run 
-;; (define my-env (make-environment))
-;; (VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
+(define my-env (make-environment))
+(VM instructions my-env '() 0 (make-stack 1024)) ;; test virtual machine
 
 
 
