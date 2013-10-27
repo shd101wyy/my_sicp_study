@@ -328,6 +328,22 @@
         )))
   (compile-sequence-iter seq env instructions))
 
+;; compile list
+;; without calculation
+(define (compile-list exp env instructions)
+		(cond ((null? exp)       ;; done
+				(instructions-push instructions (make-inst 'ref 9 0)) ;; call list procedure
+				(instructions-push instructions (make-inst 'call 0 0)))
+			  ((pair? (car exp)) ;; list 
+			  	(compile-list (car exp) env instructions)        ;; compile that list
+			  	(instructions-push instructions (make-inst 'argument 0 0))          ;; push as argument
+			  	(compile-list (cdr exp) env instructions))  ;; continue recur
+			  (else 
+			  	(instructions-push instructions (make-inst 'constant (car exp) 0))  ;; read constant
+			  	(instructions-push instructions (make-inst 'argument 0 0))          ;; push as argument
+			  	(compile-list (cdr exp) env instructions)  ;; continue recur
+			  	)))
+
 ;; compile exp
 (define (compile exp env instructions)
   (cond ((symbol? exp)
@@ -335,7 +351,12 @@
   ((pair? exp)
     (let ((tag (car exp)))
       (cond ((eq? tag 'quote)
-              (instructions-push instructions (make-inst 'constant (cadr exp) 0)))
+      		 (cond ((pair? (cadr exp))
+						(compile-list (cadr exp) env instructions)
+						) ;; it is list, call list function to build list
+      		 	   (else 
+      		 	   		(instructions-push instructions (make-inst 'constant (cadr exp) 0))
+      		 	   	)))
             ((eq? tag 'define)
               (compile-define (definition-variable exp)
                               (definition-value exp)
@@ -559,13 +580,30 @@
 		(+ arg0 arg1))))
 (define builtin-/ (make-builtin-procedure _/))
 
+;; 10 list
+;; build list
+(define _list (lambda (param-stack)
+	(define (list-iter output param-stack count)
+		(if (eq? count -1)
+			output
+			(list-iter (cons (stack-ref param-stack count) output) param-stack (- count 1))))
+	(list-iter '() param-stack (- (stack-length param-stack) 1))))
+(define builtin-list (make-builtin-procedure _list))
 
+;; 11 vector
+;; build vector
+(define _vector (lambda (param-stack) param-stack))
+(define builtin-vector (make-builtin-procedure _vector))
 
 (define builtin-procedure-name-list      ;; builtin-procedure-name-list, save builtin name and put to symbol table
-	(list 'car 'cdr 'cons 'eq? 'display '+ '- '* '/))
+	(list 'car 'cdr 'cons 'eq? 'display '+ '- '* '/  
+		  'list 'vector
+	  ))
 (define builtin-procedure-list
 	(list builtin-car builtin-cdr builtin-cons builtin-eq? builtin-display
-		builtin-+ builtin-- builtin-* builtin-/)) 
+		builtin-+ builtin-- builtin-* builtin-/
+		builtin-list builtin-vector
+		)) 
 
 ;;
 ;;
@@ -627,9 +665,9 @@
 
 ;; (define x '((define x (lambda (a) a)) x) )
 (define x '(
-	(define x (quote (1 2 3)))
-	(set! y 12))
-	)
+	(define x (quote ((1 2) 3 4)))
+		)
+)
 (compile-sequence x env instructions)
 (instructions-display instructions)
 (newline)
