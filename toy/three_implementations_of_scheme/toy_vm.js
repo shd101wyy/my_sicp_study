@@ -290,8 +290,8 @@ var lookup_env = function(var_name, env){
         else
             return [i, j]; // find var
     }
-    else
-        return [-1, -1];
+    
+    return [-1, -1];
 }
 /*
     compile lookup
@@ -310,7 +310,7 @@ var compile_lookup = function(var_name, env, instructions)
     {
         // add var inside env
         // that var is free variable
-        env[env.length - 1].push(var);
+        env[env.length - 1].push(var_name);
         instructions.push([REFER, env.length-1, env[env.length-1].length-1]);
         return;
     } // find var
@@ -431,7 +431,7 @@ var lambda_arguments = function(exp)
 {
     return exp[1];
 }
-var lambda_body  = fucntion(exp)
+var lambda_body  = function(exp)
 {
     return exp.slice(2);
 }
@@ -484,7 +484,7 @@ var compile_args = function(args, env, instructions)
     }
     return count;
 }
-var compile_application(applic, args, env, instructions)
+var compile_application = function(applic, args, env, instructions)
 {
     // add new frame
     instructions.push([FRAME, 0, 0]);
@@ -529,6 +529,36 @@ var compile_list = function(exp, env, instructions)
     }
     instructions.push([REFER, 0, 15]); // refer list procedure
     instructions.push([CALL, 0, 0]); // call procedure
+}
+/*
+    check whether string is number
+*/
+function isNumber(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
+}
+/* 
+    check whether input is pair 
+    here the pair is array in js
+    */
+var pair$ = function(exp)
+{
+    if(typeof(exp) === 'string' || typeof(exp) === 'number')
+        return false;
+    return true;
+}
+/*
+    string and not number
+*/
+var symbol$ = function(exp)
+{
+    if(typeof(exp) === 'string' && isNumber(exp) == false)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 /*
     Simple Compiler
@@ -1218,7 +1248,7 @@ var apply_vector_procedure = function(v, stack_param)
     ({:a 12 :b 13} :a) => get 12
     ({:a 12 :b 13} :a 1) => {:a 1 :b 13} set
 */
-var apply_dictionary_procedure = fucntion(d, stack_param)
+var apply_dictionary_procedure = function(d, stack_param)
 {
     if(stack_param.length === 1)
     {
@@ -1409,7 +1439,7 @@ var VM = function(instructions, environment, acc, pc, stack)
                       pc+arg1,
                       stack);
         }
-        else if (arg0 === CLOSE // make closure
+        else if (arg0 === CLOSE) // make closure
         {
             // arg1 is new pc
             return VM(instructions,
