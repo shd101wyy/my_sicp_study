@@ -1426,8 +1426,8 @@ var VM = function(instructions, environment, acc, pc, stack)
                 a = build_number(parseInt(arg1), INTEGER)
             else if (arg2 === 2) // float
                 a = build_number(parseFloat(arg1), FLOAT)
-            else if (arg3 === 3) // string
-                a = build_atom(arg1.slice(0, arg1.length -1));
+            else if (arg2 === 3) // string
+                a = build_atom(arg1.slice(1, arg1.length -1));
             else
                 error("VM constant: Instruction Error");
 
