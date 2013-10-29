@@ -17,7 +17,7 @@
 ;;    stack
 
 ;;    instructions
-;;    const value type; save value in accumulator. type: 0-> atom, 1->integer, 2->float
+;;    const value type; save value in accumulator. type: 0-> atom, 1->integer, 2->float, 3->string
 ;;    refer n m       ; get value from stack n, m and save to accumulator
 ;;    assign n m      ; get value from accumulator and save it to stack n m
 ;;    close index-of-return ; create closure
@@ -585,6 +585,10 @@ var Compiler = function(exp, env, instructions)
                     instructions.push([CONSTANT, exp, 1])
                 else
                     instructions.push([CONSTANT, exp, 2])
+            }
+            else if (exp[1][0] === '"') // string
+            {
+                instructions.push([CONSTANT, exp[1], 3]);
             }
             else  // symbol
             {
@@ -1422,6 +1426,8 @@ var VM = function(instructions, environment, acc, pc, stack)
                 a = build_number(parseInt(arg1), INTEGER)
             else if (arg2 === 2) // float
                 a = build_number(parseFloat(arg1), FLOAT)
+            else if (arg3 === 3) // string
+                a = build_atom(arg1.slice(0, arg1.length -1));
             else
                 error("VM constant: Instruction Error");
 
@@ -1643,7 +1649,7 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (define b (f)) (a 'b) (b 'a)"
+var x = "(define x \"Hello World\")"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
