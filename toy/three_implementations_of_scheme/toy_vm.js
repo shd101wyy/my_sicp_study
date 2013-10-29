@@ -63,7 +63,7 @@ var error = function(x)
     先不考虑 number
 */
 // tokenize input string
-var lexer= function(input_str){
+var Lexer= function(input_str){
     var output = []
     for(var i = 0; i < input_str.length; i++){
         /*
@@ -370,7 +370,7 @@ var compile_set = function(var_name, var_value, env, instructions)
     // compile var_value
     Compiler(var_value, env, instructions);
     var n_m = lookup_env(var_name, env);
-    if(n === -1)
+    if(n_m[0] === -1)
     {
         console.log("ERROR: cannot find var " + var_name);
         return;
@@ -1459,6 +1459,57 @@ var VM = function(instructions, environment, acc, pc, stack)
 }
 
 
+/*
+    test
+*/
+var FormatInst = function(inst)
+{
+    var i = inst[0];
+    var output = "";
+    if(i===CONSTANT)
+        output = output + "constant";
+    else if (i===ASSIGN)
+        output = output + "assign";
+    else if (i===REFER)
+        output = output + "refer";
+    else if (i===FRAME)
+        output = output + "frame";
+    else if (i===CLOSE)
+        output = output + "close";
+    else if (i===RETURN)
+        output = output + "return"
+    else if (i===ARGUMENT)
+        output = output + "argument"
+    else if (i===CALL)
+        output = output + "call"
+    else if (i===TEST)
+        output = output + "test"
+    else if (i===JMP)
+        output = output + "jmp"
+    else if (i===GOTO)
+        output = output + "goto"
+    else
+        error("Invalid instruction");
+    output = output + " " + inst[1] + " " + inst[2];
+    return output;
+}
+var PrintInstructions = function(insts)
+{
+    for(var i = 0; i < insts.length; i++)
+    {
+        console.log(FormatInst(insts[i]));
+    }
+}
+var x = "(define x 12)(set! x 15)"
+var l = Lexer(x);
+var s = Parser(l);
+
+console.log(s)
+
+var symbol_table = Build_Symbol_Table();
+var instructions = [];
+var i = compile_sequence(s, symbol_table, instructions);
+PrintInstructions(i)
 
 
 
