@@ -411,16 +411,15 @@ var compile_if = function(test, consequent, alternative, env, instructions)
     Compiler(test, env, instructions);
     var index1 = instructions.length ; // save current index
     instructions.push([TEST, 0, 0]);  // add test inst
-    var index2 = instructions.length ;
     Compiler(consequent, env, instructions); // compile consequent
     // change test 2nd argument
-    instructions[index1][1] = instructions.length - index2 + 1;
+    instructions[index1][1] = instructions.length - index1 + 1;
     var index_of_jmp = instructions.length;
     // add jmp
     instructions.push([JMP, 0, 0]);
     var index3 = instructions.length ;
     Compiler(alternative, env, instructions); // compile alternative
-    // change jmp 2nd argument
+    // change jmp 2nd argument      
     instructions[index_of_jmp][1] = instructions.length - index3 + 1;
 }
 /*
@@ -1500,7 +1499,7 @@ var PrintInstructions = function(insts)
         console.log(FormatInst(insts[i]));
     }
 }
-var x = "(quote 12)"
+var x = "(lambda (a b) (+ a b))"
 var l = Lexer(x);
 var s = Parser(l);
 
