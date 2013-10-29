@@ -1,0 +1,70 @@
+<html>
+	<head>
+		<title>Toy VM Test</title>
+		<meta charset='utf8'>
+		<script type="text/javascript" src="./toy_vm.js"></script>
+		<style type="text/css">
+			body{
+				background-color: #454545;
+				font-family: Helvetica;
+			}
+			#textarea{
+				width: 60%;
+				height: 600px;
+				position: absolute;
+				left: 20%;
+				font-size: 15px;
+			}
+			#run
+			{
+				position: absolute;
+				width: 100px;
+				top: 650px;
+				left: 45%;
+			}
+		</style>
+	</head>
+	<body>
+		<textarea id="textarea">
+		</textarea>
+		<button id="run" onclick="run()"> 
+			RUN
+		</button>
+	</body>
+
+	<script type="text/javascript">
+		var run = function()
+		{
+			var content = document.getElementById('textarea').value;
+			/*
+				lexer and parser test
+			*/
+			var x = content;
+			// var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
+			var l = Lexer(x);
+			var s = Parser(l);
+
+			console.log(s)
+			console.log("Finish testing lexer and parser")
+			console.log("==========\n\n\n\n")
+
+			/*
+			    test compiler
+			*/
+			var symbol_table = Build_Symbol_Table();
+			var instructions = [];
+			var i = compile_sequence(s, symbol_table, instructions);
+			PrintInstructions(i)
+			console.log("Finish testing compiler")
+			console.log("==========\n\n\n\n")
+
+			/*
+			    test virtual machine
+			*/
+			var env = Build_Environment();
+			var o = VM(i, env, build_atom('done'), 0, []);
+			console.log(env)
+
+		}
+	</script>
+</html>

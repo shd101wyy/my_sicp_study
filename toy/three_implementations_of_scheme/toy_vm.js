@@ -1387,7 +1387,7 @@ var _null$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === LIST && arg0.NULL = true)
+    if(arg0.TYPE === LIST && arg0.NULL === true)
         return build_true();
     return build_false();
 }
