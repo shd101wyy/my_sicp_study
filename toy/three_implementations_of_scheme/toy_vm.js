@@ -735,7 +735,6 @@ var BUILTIN_PROCEDURE = 10;
 var Atom = function(atom)
 {
     this.atom = atom;
-    this.null$ = build_false();
 
     this.NULL = false   // for virtual machine check
     this.TYPE = ATOM  // for virtual machien check
@@ -772,7 +771,6 @@ var build_false = function()
 // build nil
 var Nil = function()
 {
-    this.null$ = build_true();
  
     this.NULL = true   // for virtual machine check
     this.TYPE = LIST  // for virtual machien check
@@ -796,8 +794,6 @@ var Cons = function(x, y)
     {
         this.cdr = value;
     }
-    this.pair$ = build_true();
-    this.null$ = build_false;
 
     this.NULL = false   // for virtual machine check
     this.TYPE = LIST  // for virtual machien check
@@ -844,7 +840,6 @@ var build_list = function(stack_param)
 var build_vector = function(stack_param)
 {
    this.vector = stack_param;
-   this.null$ = build_false();
    this.ref = function(index)
    {
     return this.vector[index];
@@ -907,8 +902,6 @@ var build_dictionary = function(stack_param)
         return build_vector(Object.keys(this.dict));
     }
 
-    this.null$ = build_false();
-
 
     this.NULL = false   // for virtual machine check
     this.TYPE = DICTIONARY  // for virtual machien check 
@@ -952,8 +945,6 @@ var closure_environment_extend = function(base_env, extend_env)
 var Builtin_Procedure = function(func)
 {
     this.func = func;
-    this.type = build_atom('builtin_procedure');
-    this.null$ = build_false();
 
     this.TYPE = BUILTIN_PROCEDURE;
     this.NULL = false;
