@@ -527,7 +527,7 @@ var compile_list = function(exp, env, instructions)
             instructions.push([ARGUMENT, 0, 0]);
         }
     }
-    instructions.push([REFER, 0, 9]); // refer list procedure
+    instructions.push([REFER, 0, 15]); // refer list procedure
     instructions.push([CALL, 0, 0]); // call procedure
 }
 /*
@@ -849,15 +849,18 @@ var build_dictionary = function(stack_param)
     /*
         set value according to key
     */
-    this.set = function(key_obj, value_obj)
+    this.set = function(key_string, value_obj)
     {
-        if(key_obj.TYPE !== ATOM)
-        {
-            error("Invalid Key");
-            break;
-        }
-        this.dict[key_obj.atom] = value_obj
+        this.dict[key_string] = value_obj
+        return this.dict;
     }  
+    /*
+        get value according to key
+    */
+    this.ref = function(key_string) 
+    {
+        return this.dict[key_string];
+    }
     /*
         return keys as vector
     */
@@ -917,6 +920,10 @@ var Builtin_Procedure = function(func)
 
     this.TYPE = BUILTIN_PROCEDURE;
     this.NULL = false;
+}
+var primitive_func = function(builtin_proc)
+{
+    return this.func;
 }
 var build_builtin_procedure = function(func)
 {
@@ -1024,7 +1031,7 @@ var _number$ = function(stack_param)
     var v = stack_param[0];
     return v.TYPE === NUMBER ? build_true() : build_false();
 }
-var _list$ = function(stack_param)
+var _pair$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var v = stack_param[0];
@@ -1056,6 +1063,20 @@ var _dictionary = function(stack_param)
 var _vector = function(stack_param)
 {
     return build_vector(stack_param);
+}
+var _push = function(stack_param) // vector push
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    arg0.push(arg1);
+    return arg0;
+}
+var _pop = function(stack_param)  // vector pop
+{
+    checkParam(stack_param, 1);
+    var arg = stack_param[0];
+    return arg.pop();
 }
 var _list = function(stack_param)
 {
@@ -1094,6 +1115,34 @@ var _eq$ = function(stack_param)
     }
 }
 
+// summary
+var primitive_symbol_table_list = [
+'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop'];
+var primitive_procedure_list = [
+    _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, builtin_procedure$,
+    _display, _dictionary, _vector, _list, _eq$, _push, _pop
+];
+
+/*
+    return symbol table for compiler
+*/
+var Build_Symbol_Table = function(){
+    return [primitive_symbol_table_list];
+}
+var Build_Environment = function(){
+    var output = [];
+    var global_frame = [];
+    for(var i = 0; i < primitive_procedure_list; i++)
+    {
+        global_frame.push(build_builtin_procedure(primitive_procedure_list[i]));
+    }
+    output.push(global_frame);
+    return output;
+}
+
+
+
 /*
     Test Data Type
     for virtual machine
@@ -1127,6 +1176,77 @@ var builtin_procedure$ = function(v)
     return v.TYPE === BUILTIN_PROCEDURE ? true : false;
 }
 
+
+/*
+    Special Application
+*/
+/*
+    Vector:
+    ([1 2] 0) => 1              get
+    ([1 2] 0 12) => [12 2]      set
+*/
+var apply_vector_procedure = function(v, stack_param)
+{
+    if(stack_param.length === 1)
+    {
+        var arg = stack_param[0];
+        if(arg.TYPE!==NUMBER)
+        {
+            error("Vector call: invalid parameters type");
+            return build_false();
+        }  
+        return v.ref(arg.num);
+    }
+    else if (stack_param.length === 2)
+    {
+        var arg0 = stack_param[0];
+        var arg1 = stack_param[1];
+        if(arg0.TYPE !== NUMBER)
+        {
+            error("Vector call: invalid parameters type");
+            return build_false();
+        }
+        v.set(arg0.num, arg1);
+        return v;
+    }
+    else{
+        error("Vector call: invalid parameters nums");
+        return build_false();
+    }
+}
+/*
+    ({:a 12 :b 13} :a) => get 12
+    ({:a 12 :b 13} :a 1) => {:a 1 :b 13} set
+*/
+var apply_dictionary_procedure = fucntion(d, stack_param)
+{
+    if(stack_param.length === 1)
+    {
+        var arg = stack_param[0];
+        if(arg.TYPE!==ATOM)
+        {
+            error("Dictionary call: invalid parameters type");
+            return build_false();
+        }  
+        return d.ref(arg.atom);
+    }
+    else if (stack_param.length === 2)
+    {
+        var arg0 = stack_param[0];
+        var arg1 = stack_param[1];
+        if(arg0.TYPE !== ATOM)
+        {
+            error("Dictionary call: invalid parameters type");
+            return build_false();
+        }
+        d.set(arg0.atom, arg1);
+        return d;
+    }
+    else{
+        error("Dictionary call: invalid parameters nums");
+        return build_false();
+    }
+}
 
 
 var VM = function(instructions, environment, acc, pc, stack)
@@ -1222,25 +1342,29 @@ var VM = function(instructions, environment, acc, pc, stack)
                           pc+1,
                           stack);
             } 
-            
             else if (builtin_procedure$(acc)) // builtin procedure
             {
-
+                var a = apply_primitive_procedure(primitive_func(acc), stack.pop());
+                 return VM(instructions,
+                          stack.pop(),
+                          a,
+                          pc+1,
+                          stack);
             }
             else if (vector$(acc)) // vector
             {
                 var a = apply_vector_procedure(acc, stack.pop());
                 return VM(instructions,
-                          environment,
+                          stack.pop(),
                           a,
                           pc+1,
                           stack);
             }
             else if (dictionary$(acc)) // dictionary
             {
-                var a = apply_vector_procedure(acc, stack.pop());
+                var a = apply_dictionary_procedure(acc, stack.pop());
                 return VM(instructions,
-                          environment,
+                          stack.pop(),
                           a,
                           pc+1,
                           stack);

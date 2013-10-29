@@ -623,7 +623,7 @@
                   					(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			((vector? acc)  ;; vector
-                  				(let ((a (apply-vector-procedure (stack-pop)))) ;; call vector related function
+                  				(let ((a (apply-vector-procedure acc (stack-pop)))) ;; call vector related function
                   					(VM instructions (stack-pop stack) a (+ pc 1) stack) ;; restore environment from stack
                   					))
                   			(else
