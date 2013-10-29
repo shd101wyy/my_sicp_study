@@ -914,9 +914,6 @@ var Closure = function(start_pc, environment)
     this.start_pc = start_pc;
     this.environment = environment;
 
-    this.type = build_atom('closure');
-    this.null$ = build_false();
-
     this.NULL = false   // for virtual machine check
     this.TYPE = CLOSURE  // for virtual machien check 
 }
@@ -1480,7 +1477,7 @@ var VM = function(instructions, environment, acc, pc, stack)
                 // get new acc
                 var a = VM(instructions, 
                            base_environment,
-                           [],
+                           build_atom('done'),
                            start_pc,
                            stack);
                 // restore closure_base_environment
@@ -1629,22 +1626,22 @@ var PrintInstructions = function(insts)
 /*
 (define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1))))))
 (define f (lambda ()
-    (define x '(1 2))
+    (define x '(1 2)')
     (lambda (msg)
-        (cond ((eq? msg 'a)
-               x)
-              (else
-                (set-car! x 12)))
-        )))
-*/
+        (if (eq? msg 'a')
+            x
+            (set-car! x 12)))))
 
-var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) (f 5)"
+(define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
+*/
+var x = "(define f (lambda () (lambda (msg) (if (eq? msg 'a) 1 2)))) (define a (f)) (a 'a)"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
 
 console.log(s)
 console.log("Finish testing lexer and parser")
+console.log("==========\n\n\n\n")
 
 /*
     test compiler
@@ -1654,6 +1651,7 @@ var instructions = [];
 var i = compile_sequence(s, symbol_table, instructions);
 PrintInstructions(i)
 console.log("Finish testing compiler")
+console.log("==========\n\n\n\n")
 
 /*
     test virtual machine
