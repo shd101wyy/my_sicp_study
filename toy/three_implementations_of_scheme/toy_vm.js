@@ -1180,11 +1180,12 @@ var _add = function(stack_param)
         return build_false();
     }
     else{
+        var result = arg0.num + arg1.num
         if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
         {
-            return build_number(arg0.num+arg1.num, FLOAT);
+            return build_number(result, FLOAT);
         }
-        return build_number(arg0.num+arg1.num, INTEGER);
+        return build_number(result, INTEGER);
     }
 }
 var _sub = function(stack_param)
@@ -1198,11 +1199,12 @@ var _sub = function(stack_param)
         return build_false();
     }
     else{
+        var result = arg0.num - arg1.num
         if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
         {
-            return build_number(arg0.num-arg1.num, FLOAT);
+            return build_number(result, FLOAT);
         }
-        return build_number(arg0.num-arg1.num, INTEGER);
+        return build_number(result, INTEGER);
     }
 }
 var _mul = function(stack_param)
@@ -1216,11 +1218,12 @@ var _mul = function(stack_param)
         return build_false();
     }
     else{
+        var result = arg0.num * arg1.num
         if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
         {
-            return build_number(arg0.num*arg1.num, FLOAT);
+            return build_number(result, FLOAT);
         }
-        return build_number(arg0.num*arg1.num, INTEGER);
+        return build_number(result, INTEGER);
     }
 }
 var _div = function(stack_param)
@@ -1622,18 +1625,15 @@ var PrintInstructions = function(insts)
     test lexer parser
 */
 /*
-(define f (lambda (n) 
-    (if (eq? n 0) 
-        1 
-        (* n (f (- n 1)))
-        )
-    ))
+(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1))))))
 */
-var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) "
+// var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) (f 1)"
+var x = "(define add (lambda (a b) (+ a b))) (add 3 4)"
 var l = Lexer(x);
 var s = Parser(l);
 
 console.log(s)
+console.log("Finish testing lexer and parser")
 
 /*
     test compiler
@@ -1642,6 +1642,7 @@ var symbol_table = Build_Symbol_Table();
 var instructions = [];
 var i = compile_sequence(s, symbol_table, instructions);
 PrintInstructions(i)
+console.log("Finish testing compiler")
 
 /*
     test virtual machine
