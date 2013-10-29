@@ -81,7 +81,7 @@
 (define (build-nil)
   (lambda (msg)
     (cond ((eq? msg 'type)
-            'list)
+            (build-atom 'list))
           ((eq? msg 'null?)
             (build-true))
           ((eq? msg 'NULL?) ;; for virtual machine test
@@ -125,7 +125,7 @@
 ;; build list
 (define (CONS x y)
   (lambda (msg)
-    (cond ((eq? msg 'type) 'list)
+    (cond ((eq? msg 'type) (build-atom 'list))
           ((eq? msg 'car) x)
           ((eq? msg 'cdr) y)
           ((eq? msg 'set-car!)
@@ -136,7 +136,7 @@
               (set! y value)))
           ((eq? msg 'pair?)
             (build-true))
-          ((eq? msg 'NULL?) ;; virtual machine test
+          ((eq? msg 'NULL) ;; virtual machine test
             #f)
           ((eq? msg 'null?)
             (build-false))

@@ -249,18 +249,6 @@ var Parser = function(input_array){
 }
 
 
-/*
-    Data Types
-*/
-var NUMBER = 1
-var LIST = 2
-var VECTOR = 3
-var ATOM = 4
-var NIL = 5  // it is list
-var DICTIONARY 6 
-var INTEGER = 7
-var FLOAT = 8
-
 
 /*
     Instructions
@@ -610,8 +598,537 @@ var Compiler = function(exp, env, instructions)
 
 
 /*
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+
     Virtual Machien
+
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+=================================================================
+
+THe Part Below is the Virtual Machine Part
+including:
+    Data Type Building
+    Virtual Machine Design
+
 */
+/*
+;;    instructions
+;;    const value     ; save value in accumulator
+;;    refer n m       ; get value from stack n, m and save to accumulator
+;;    assign n m      ; get value from accumulator and save it to stack n m
+;;    close index-of-return ; create closure
+;;    return          ; end closure
+;;    frame           ; create new frame on stack
+;;    argument        ; push argument on accumulator to toppest frame of stack
+;;    call            ; get procedure from accumulator, pop toppest frame in stack. run function
+;;    test jmp_steps  ; get value from accumulator and test, if pass, run next
+;;              ; else jump
+;;    jmp steps       ; jmp steps
+;;    goto pc         ; goto pc; this instruction may replace jmp in the future
+;;
+;;
+
+var CONSTANT = 1;
+var REFER = 2;
+var ASSIGN = 3;
+var CLOSE = 4;
+var RETURN = 5;
+var FRAME = 6;
+var ARGUMENT = 7;
+var CALL = 8;
+var TEST = 9;
+var JMP = 10;
+var GOTO = 11;
+*/
+/*
+    make closure data type
+*/
+var NUMBER = 1;
+var LIST = 2;
+var VECTOR = 3;
+var ATOM = 4;
+var NIL = 5;
+var DICTIONARY = 6;
+var INTEGER = 7;
+var FLOAT = 8;
+var CLOSURE = 9;  // data type 
+var BUILTIN_PROCEDURE = 10;
+
+// build atom data type
+var Atom = function(atom)
+{
+    this.atom = atom;
+    this.type = build_atom('atom');
+    this.null$ = build_false();
+
+    this.NULL = false   // for virtual machine check
+    this.TYPE = ATOM  // for virtual machien check
+}
+var build_atom = function(atom)
+{
+    return new Atom(atom);
+}
+// build number data type
+var Number = function(num, type)
+{
+    this.num = num;
+    this.type = build_atom('number');
+    this.null$ = build_false();
+    this.number$ = build_true();
+    this.integer$ = INTEGER === type ? build_true() : build_false();
+    this.float$ = FLOAT === type ? build_true() : build_false();
+
+    this.NULL = false   // for virtual machine check
+    this.TYPE = NUMBER  // for virtual machien check
+}
+var build_number = function(num, type)
+{
+    return new Number(num, type);
+}
+
+// build true data type
+var build_true = function()
+{
+    return build_number(1, NUMBER);
+}
+// build false data type
+var build_false = function()
+{
+    return build_nil();
+}
+
+// build nil
+var Nil = function()
+{
+    this.type = build_atom('list'),
+    this.null$ = build_true();
+ 
+    this.NULL = true   // for virtual machine check
+    this.TYPE = LIST  // for virtual machien check
+
+}
+var build_nil = function()
+{
+   return new Nil();
+}
+
+// build List
+var Cons = function(x, y)
+{
+    this.car = x;
+    this.cdr = y;
+    this.set_car = function(value)
+    {
+        this.car = value;
+    }
+    this.set_cdr = function(value)
+    {
+        this.cdr = value;
+    }
+    this.pair$ = build_true();
+    this.null$ = build_false;
+
+    this.NULL = false   // for virtual machine check
+    this.TYPE = LIST  // for virtual machien check
+}
+var cons = function(x, y)
+{
+    return new Cons(x,y);
+}
+var car = function(obj)
+{
+    return obj['car'];
+}
+var cdr = function(obj)
+{
+    return obj['cdr'];
+}
+var set_car = function(x, value)
+{
+    x.set_car(value);
+}
+var set_cdr = function(x, value)
+{
+    x.set_cdr(value);
+}
+// (list 1 2) => '(1 2)
+var build_list = function(stack_param)
+{
+    var list_iter = function(stack_param, count)
+    {
+        if(count === stack_param.length)
+        {
+            return build_nil();
+        }
+        else
+        {
+            return cons(stack_param[count], 
+                        list_iter(stack_param, count + 1));
+        }
+    }
+    return list_iter(stack_param, 0);
+}
+
+// build vector
+var build_vector = function(stack_param)
+{
+   this.vector = stack_param;
+   this.null$ = build_false();
+   this.ref = function(index)
+   {
+    return this.vector[index];
+   }
+   this.set = function(index, value)
+   {
+    this.vector[index] = value;
+   }
+   this.push = function(value)
+   {
+    this.vector.push(value);
+   }
+   this.pop = function()
+   {
+    this.vector.pop();
+   }
+
+    this.NULL = false   // for virtual machine check
+    this.TYPE = VECTOR  // for virtual machien check
+}
+
+// build dictionary
+var build_dictionary = function(stack_param)
+{
+    var dict = {};
+    /*
+        init dictionary
+    */
+    for(var i = 0 ; i < stack_param; i = i + 2)
+    {
+        var key_obj = stack_param[i];
+        var value_obj = stack_param[i+1];
+        if(key_obj.TYPE !== ATOM)
+        {
+            error("Invalid Key");
+            break;
+        }
+        dict[key_obj.atom] = value_obj;
+    }
+    /*
+        set value according to key
+    */
+    this.set = function(key_obj, value_obj)
+    {
+        if(key_obj.TYPE !== ATOM)
+        {
+            error("Invalid Key");
+            break;
+        }
+        this.dict[key_obj.atom] = value_obj
+    }  
+    /*
+        return keys as vector
+    */
+    this.keys = function()
+    {
+        return build_vector(Object.keys(this.dict));
+    }
+
+    this.type = build_atom('dictionary');
+    this.null$ = build_false();
+
+
+    this.NULL = false   // for virtual machine check
+    this.TYPE = DICTIONARY  // for virtual machien check 
+}
+/*
+    Build Closure Data Type
+*/
+var Closure = function(start_pc, environment)
+{
+    this.start_pc = start_pc;
+    this.environment = environment;
+
+    this.type = build_atom('closure');
+    this.null$ = build_false();
+
+    this.NULL = false   // for virtual machine check
+    this.TYPE = CLOSURE  // for virtual machien check 
+}
+
+var make_closure = function(start_pc, environment) // start-pc is where instruction starts
+{
+    return new Closure(start_pc, environment)
+}
+var closure_start_pc = function(closure)
+{
+    return closure.start_pc;
+}
+var closure_environment = function(closure)
+{
+    return closure.environment;
+}
+var closure_environment_extend = function(base_env, extend_env)
+{
+    base_env.push(extend_env);
+    return base_env;
+}
+
+/*
+    Build Builtin Procedure Data Type
+*/
+var Builtin_Procedure = function(func)
+{
+    this.func = func;
+    this.type = build_atom('builtin_procedure');
+    this.null$ = build_false();
+
+    this.TYPE = BUILTIN_PROCEDURE;
+    this.NULL = false;
+}
+var build_builtin_procedure = function(func)
+{
+    return new Builtin_Procedure(func);
+}
+
+
+/*
+    Primitive Builtin Procedure
+*/
+var checkParam = function(stack_param, required_param_num)
+{
+    if(stack_param.length!==required_param_num)
+    {
+        if(stack_param.length > required_param_num)
+        {
+            error("Too Many Parameters Provided");
+        }
+        else{
+            error("Too Few Parameters Provided");
+        }
+    }
+}
+var _car = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg = stack_param[0]
+    if(arg.TYPE !== LIST)
+    {
+        error("Function car: invalid type of param " );
+        return build_false();
+    }
+    return car(arg);  
+}
+var _cdr = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg = stack_param[0]
+    if(arg.TYPE !== LIST)
+    {
+        error("Function cdr: invalid type of param " );
+        return build_false();
+    }
+    return cdr(arg);  
+}
+var _set_car = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE !== LIST)
+    {
+        error("Function set-car!: invalid type of param " );
+        return build_false();
+    }
+    set_car(arg0, arg1);
+    return arg0
+}
+var _set_cdr = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE !== LIST)
+    {
+        error("Function set-cdr!: invalid type of param " );
+        return build_false();
+    }
+    set_cdr(arg0, arg1);
+    return arg0
+}
+var _cons = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE !== LIST)
+    {
+        error("Function cons: invalid type of param " );
+        return build_false();
+    }
+    return cons(arg0, arg1);
+}
+var _closure$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === CLOSURE ? build_true() : build_false();
+}
+var _vector$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === VECTOR ? build_true() : build_false();
+}
+var _dictionary$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === DICTIONARY ? build_true() : build_false();
+}
+var _number$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === NUMBER ? build_true() : build_false();
+}
+var _list$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === LIST ? build_true() : build_false();
+}
+var _atom$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === ATOM ? build_true() : build_false();
+}
+var _builtin_procedure$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    return v.TYPE === BUILTIN_PROCEDURE ? build_true() : build_false();
+}
+var _display = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    console.log(v.TYPE);
+}
+
+var _dictionary = function(stack_param)
+{
+    return build_dictionary(stack_param);
+}
+var _vector = function(stack_param)
+{
+    return build_vector(stack_param);
+}
+var _list = function(stack_param)
+{
+    return build_list(stack_param);
+}
+
+var _eq$ = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE !== arg1.TYPE)
+    {
+        error("Function eq?: invalid parameters type")
+        return build_false();
+    }
+    if(arg0.NULL && arg1.NULL) // empty list comparison
+    {
+        return build_true();
+    }
+    if(arg0.TYPE === LIST ||
+        arg0.TYPE === VECTOR ||
+        arg0.TYPE === DICTIONARY ||
+        arg0.TYPE === CLOSURE ||
+        arg0.TYPE === BUILTIN_PROCEDURE)
+    {
+        return arg0 === arg1 ? build_true() : build_false();
+    }
+    else if (arg0.TYPE === NUMBER)
+    {
+        return arg0.num === arg1.num ? build_true() : build_false();
+    }
+    else if (arg0.TYPE === ATOM)
+    {
+        return arg0.atom === arg1.atom ? build_true() : build_false();
+    }
+}
+
+/*
+    Test Data Type
+    for virtual machine
+*/
+var closure$ = function(v)
+{
+    return v.TYPE === CLOSURE ? true : false;
+}
+var vector$ = function(v)
+{
+    return v.TYPE === VECTOR ? true : false;
+}
+var dictionary$ = function(v)
+{
+    return v.TYPE === DICTIONARY ? true : false;
+}
+var number$ = function(v)
+{
+    return v.TYPE === NUMBER ? true : false;
+}
+var list$ = function(v)
+{
+    return v.TYPE === LIST ? true : false;
+}
+var atom$ = function(v)
+{
+    return v.TYPE === ATOM ? true : false;
+}
+var builtin_procedure$ = function(v)
+{
+    return v.TYPE === BUILTIN_PROCEDURE ? true : false;
+}
+
+
+
 var VM = function(instructions, environment, acc, pc, stack)
 {
     if(instructions.length === pc) // end of program
@@ -683,19 +1200,50 @@ var VM = function(instructions, environment, acc, pc, stack)
             */
             if(closure$(acc)) // closure
             {
-
+                // run closure
+                var closure_start_pc = closure_start_pc(acc);
+                var closure_base_environment = closure_environment(acc);
+                // extend base_environment
+                closure_base_environment.push(stack[stack.length - 1]);
+                // get new acc
+                var a = VM(instructions, 
+                           closure_base_environment,
+                           [],
+                           closure_start_pc,
+                           stack);
+                // restore closure_base_environment
+                closure_base_environment.pop();
+                // pop argument frame
+                stack.pop();
+                // restore environment
+                return VM(instructions,
+                          stack.pop(),
+                          a,
+                          pc+1,
+                          stack);
             } 
+            
             else if (builtin_procedure$(acc)) // builtin procedure
             {
 
             }
             else if (vector$(acc)) // vector
             {
-
+                var a = apply_vector_procedure(acc, stack.pop());
+                return VM(instructions,
+                          environment,
+                          a,
+                          pc+1,
+                          stack);
             }
             else if (dictionary$(acc)) // dictionary
             {
-
+                var a = apply_vector_procedure(acc, stack.pop());
+                return VM(instructions,
+                          environment,
+                          a,
+                          pc+1,
+                          stack);
             }
             else
             {
@@ -751,7 +1299,7 @@ var VM = function(instructions, environment, acc, pc, stack)
         else
         {
             error("Invalid Instructions");
-            return 
+            return ;
         }
     }
 }
