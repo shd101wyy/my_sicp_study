@@ -574,7 +574,7 @@ var Compiler = function(exp, env, instructions)
         {
             if(pair$(exp[1]))
             {
-                compile_list(exp.slice(1), env, instructions);
+                compile_list(exp[1], env, instructions);
             }
             else 
             {
@@ -1500,7 +1500,7 @@ var PrintInstructions = function(insts)
         console.log(FormatInst(insts[i]));
     }
 }
-var x = "(define x 12)(set! x 15)"
+var x = "(quote 12)"
 var l = Lexer(x);
 var s = Parser(l);
 
