@@ -1305,7 +1305,10 @@ var builtin_procedure$ = function(v)
 {
     return v.TYPE === BUILTIN_PROCEDURE ? true : false;
 }
-
+var true$ = function(v)
+{
+    return v.TYPE === LIST && v.NULL === true? false : true;
+}
 
 /*
     Special Application
@@ -1618,7 +1621,15 @@ var PrintInstructions = function(insts)
 /*
     test lexer parser
 */
-var x = "(define add (lambda () (lambda () 12))) ((add))"
+/*
+(define f (lambda (n) 
+    (if (eq? n 0) 
+        1 
+        (* n (f (- n 1)))
+        )
+    ))
+*/
+var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) "
 var l = Lexer(x);
 var s = Parser(l);
 
