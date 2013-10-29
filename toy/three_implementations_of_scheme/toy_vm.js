@@ -1465,18 +1465,18 @@ var VM = function(instructions, environment, acc, pc, stack)
             if(closure$(acc)) // closure
             {
                 // run closure
-                var closure_start_pc = closure_start_pc(acc);
-                var closure_base_environment = closure_environment(acc);
+                var start_pc = closure_start_pc(acc);
+                var base_environment = closure_environment(acc);
                 // extend base_environment
-                closure_base_environment.push(stack[stack.length - 1]);
+                base_environment.push(stack[stack.length - 1]);
                 // get new acc
                 var a = VM(instructions, 
-                           closure_base_environment,
+                           base_environment,
                            [],
-                           closure_start_pc,
+                           start_pc,
                            stack);
                 // restore closure_base_environment
-                closure_base_environment.pop();
+                base_environment.pop();
                 // pop argument frame
                 stack.pop();
                 // restore environment
@@ -1618,7 +1618,7 @@ var PrintInstructions = function(insts)
 /*
     test lexer parser
 */
-var x = "(define x 12) (+ x 15)"
+var x = "(define add (lambda (a b) (+ a b))) (add 3 4)"
 var l = Lexer(x);
 var s = Parser(l);
 
