@@ -912,7 +912,7 @@ var build_dictionary = function(stack_param)
 var Closure = function(start_pc, environment)
 {
     this.start_pc = start_pc;
-    this.environment = environment;
+    this.environment = environment.slice(0);
 
     this.NULL = false   // for virtual machine check
     this.TYPE = CLOSURE  // for virtual machien check 
