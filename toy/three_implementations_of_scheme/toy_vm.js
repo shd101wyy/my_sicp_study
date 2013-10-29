@@ -735,7 +735,6 @@ var BUILTIN_PROCEDURE = 10;
 var Atom = function(atom)
 {
     this.atom = atom;
-    this.type = build_atom('atom');
     this.null$ = build_false();
 
     this.NULL = false   // for virtual machine check
@@ -749,11 +748,7 @@ var build_atom = function(atom)
 var Number = function(num, type)
 {
     this.num = num;
-    this.type = build_atom('number');
-    this.null$ = build_false();
-    this.number$ = build_true();
-    this.integer$ = INTEGER === type ? build_true() : build_false();
-    this.float$ = FLOAT === type ? build_true() : build_false();
+    this.type = type;
 
     this.NULL = false   // for virtual machine check
     this.TYPE = NUMBER  // for virtual machien check
@@ -777,7 +772,6 @@ var build_false = function()
 // build nil
 var Nil = function()
 {
-    this.type = build_atom('list'),
     this.null$ = build_true();
  
     this.NULL = true   // for virtual machine check
@@ -913,7 +907,6 @@ var build_dictionary = function(stack_param)
         return build_vector(Object.keys(this.dict));
     }
 
-    this.type = build_atom('dictionary');
     this.null$ = build_false();
 
 
@@ -967,7 +960,7 @@ var Builtin_Procedure = function(func)
 }
 var primitive_func = function(builtin_proc)
 {
-    return this.func;
+    return builtin_proc.func;
 }
 var build_builtin_procedure = function(func)
 {
@@ -1158,14 +1151,40 @@ var _eq$ = function(stack_param)
         return arg0.atom === arg1.atom ? build_true() : build_false();
     }
 }
+var _integer$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg0 = stack_param[0];
+    if(arg0.TYPE === NUMBER && arg0.type === INTEGER){
+        return build_true();
+    }
+    return build_false();
+}
+var _float$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg0 = stack_param[0];
+    if(arg0.TYPE === NUMBER && arg0.type === FLOAT)
+        return build_true();
+    return build_false();
+}
+
+var _null$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg0 = stack_param[0];
+    if(arg0.TYPE === LIST && arg0.NULL = true)
+        return build_true();
+    return build_false();
+}
 
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
-'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop'];
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?'];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, builtin_procedure$,
-    _display, _dictionary, _vector, _list, _eq$, _push, _pop
+    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$
 ];
 
 /*
@@ -1177,7 +1196,7 @@ var Build_Symbol_Table = function(){
 var Build_Environment = function(){
     var output = [];
     var global_frame = [];
-    for(var i = 0; i < primitive_procedure_list; i++)
+    for(var i = 0; i < primitive_procedure_list.length; i++)
     {
         global_frame.push(build_builtin_procedure(primitive_procedure_list[i]));
     }
@@ -1291,6 +1310,10 @@ var apply_dictionary_procedure = function(d, stack_param)
         return build_false();
     }
 }
+var apply_primitive_procedure = function(primitive_proc, stack_param)
+{
+    return primitive_proc(stack_param);
+}
 
 
 var VM = function(instructions, environment, acc, pc, stack)
@@ -1305,7 +1328,7 @@ var VM = function(instructions, environment, acc, pc, stack)
     {
         var inst = instructions[pc];
         var arg0 = inst[0];
-        var arg1 = isnt[1];
+        var arg1 = inst[1];
         var arg2 = inst[2];
         if(arg0 === CONSTANT) // constant
         {
@@ -1353,7 +1376,7 @@ var VM = function(instructions, environment, acc, pc, stack)
                 pc+1,
                 stack);
         }
-        else if (arg0 === FRAME)
+        else if (arg0 === ARGUMENT)
         {
             stack[stack.length - 1].push(acc);
             return VM(instructions,
@@ -1477,6 +1500,7 @@ var VM = function(instructions, environment, acc, pc, stack)
         else
         {
             error("Invalid Instructions");
+            console.log(arg0);
             return ;
         }
     }
@@ -1524,17 +1548,29 @@ var PrintInstructions = function(insts)
         console.log(FormatInst(insts[i]));
     }
 }
-var x = "(define x {:a 12 :b 14.02})"
+/*
+    test lexer parser
+*/
+var x = "(define x 12)(set! x 15)(integer? x)"
 var l = Lexer(x);
 var s = Parser(l);
 
 console.log(s)
 
+/*
+    test compiler
+*/
 var symbol_table = Build_Symbol_Table();
 var instructions = [];
 var i = compile_sequence(s, symbol_table, instructions);
 PrintInstructions(i)
 
+/*
+    test virtual machine
+*/
+var env = Build_Environment();
+var o = VM(i, env, build_atom('done'), 0, []);
+console.log(env)
 
 
 
