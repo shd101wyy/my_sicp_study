@@ -1105,7 +1105,9 @@ var _builtin_procedure$ = function(stack_param)
 */
 var formatNumber = function(n)
 {
-    return n.num;
+    if(n.type === INTEGER)
+        return n.num
+    return n.num.toFixed(6);
 }
 var formatAtom = function(a)
 {
@@ -1470,7 +1472,7 @@ var _div = function(stack_param)
         var result = arg0.num / arg1.num;
         if(isInteger(result)) 
             return build_number(result, INTEGER)
-        return build_number(result, FLOAT);
+        return build_number(Math.floor(result), FLOAT);
     }
 }
 
@@ -1871,7 +1873,7 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(define x {:a 12}) (x :a 15) (display x)"
+var x = "(define x 15) (display x)"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
