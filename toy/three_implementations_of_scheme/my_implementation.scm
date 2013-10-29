@@ -60,38 +60,47 @@
 ;; list
 ;; vector
 ;; atom
-;; boolean
+;; dictionary
 
 (define NUMBER 1)
 (define LIST 2)
 (define VECTOR 3)
 (define ATOM 4)
-(define BOOLEAN 5)
+(define DICTIONARY 6)
+(define NIL 5)
 (define INTEGER 6)
 (define FLOAT 7)
 
-
+;; true is 1
 (define (build-true)
-  (lambda (msg)
-    (cond ((eq? msg 'type) (build-atom 'boolean)) ;; test boolean type
-          ((eq? msg 'true?) (build-true)) ;; return true
-          ((eq? msg 'false?) (build-false)) ;; return false
-          )))
+  (build-number 1 INTEGER))
 
 (define (build-false)
+  (build-nil))
+;; empty list
+(define (build-nil)
   (lambda (msg)
-    (cond ((eq? msg 'type) (build-atom 'boolean)) ;; test boolean type
-          ((eq? msg 'true?) (build-false)) ;; return false
-          ((eq? msg 'false?) (build-true)) ;; return true
+    (cond ((eq? msg 'type)
+            'list)
+          ((eq? msg 'null?)
+            (build-true))
+          ((eq? msg 'NULL?) ;; for virtual machine test
+            #t)
+          ((eq? msg 'TYPE) ;; for system check type
+            LIST)
           )))
-
 (define (build-atom atom)
   (lambda (msg)
     (cond ((eq? msg 'type)
            (build-atom 'atom))
           ((eq? msg 'atom?) 
            (build-true))
+          ((eq? msg 'NULL?) ;; for virtual machine test
+            #f)
+          ((eq? msg 'TYPE) ;; for system check type
+            ATOM)
           )))
+
 (define (build-number num type)
   (lambda (msg)
     (cond ((eq? msg 'type) (build-atom 'number))
@@ -100,7 +109,88 @@
           ((eq? msg 'integer?)
             (if (eq? INTEGER type)
               (make-true)
-              (make-false))))))
+              (make-false)))
+          ((eq? msg 'float?)
+            (if (eq? INTEGER type)
+              (make-false)
+              (make-true)))
+          ((eq? msg 'NULL?) ;; for virtual machine test
+            #f)
+          ((eq? msg 'TYPE) ;; for system check type
+            NUMBER)
+          ((eq? msg 'VALUE) ;; get number value
+            num)
+          )))
+;; toy cons function
+;; build list
+(define (CONS x y)
+  (lambda (msg)
+    (cond ((eq? msg 'type) 'list)
+          ((eq? msg 'car) x)
+          ((eq? msg 'cdr) y)
+          ((eq? msg 'set-car!)
+            (lambda (value)
+              (set! x value)))
+          ((eq? msg 'set-cdr!)
+            (lambda (value)
+              (set! y value)))
+          ((eq? msg 'pair?)
+            (build-true))
+          ((eq? msg 'NULL?) ;; virtual machine test
+            #f)
+          ((eq? msg 'null?)
+            (build-false))
+          ((eq? msg 'TYPE) ;; for system check type
+            LIST)
+      )))
+(define (CAR x)
+  (x 'car))
+(define (CDR x)
+  (x 'cdr))
+(define (SET-CAR! x value)
+  ((x 'set-car!) value))
+(define (SET-CDR! x value)
+  ((x 'set-cdr!) value))
+;; (list 1 2) => '(1 2)
+(define (LIST stack-param)
+  (define len (stack-length stack-param))
+  (define (LIST-iter stack-param count)
+    (cond ((eq? count len)  ;; end
+           (build-nil)) ;; return nil
+          (else
+            (CONS (stack-ref stack-param count) (LIST-iter stack-param (+ count 1)))
+            )))
+  (LIST-iter stack-param 0))
+;; build vector
+(define (build-vector stack-param)
+  (lambda (msg)
+    (cond ((eq? msg 'type)
+           'vector)
+          ((eq? msg 'vector?)
+           (build-true))
+          ((eq? msg 'ref)
+            (lambda (index) (stack-ref stack-param index)))
+          ((eq? msg 'set)
+            (lambda (index value) (stack-set! stack-param index value)))
+          ((eq? msg 'pop)
+            (stack-pop stack-param))
+          ((eq? msg 'push)
+            (lambda (value) (stack-push stack-param value)))
+          ((eq? msg 'NULL?) ;; for virtual machine test
+            #f)
+          ((eq? msg 'TYPE) ;; for system check type
+            VECTOR)
+          )))
+
+;; test true or false for virtual machine
+(define (false? obj)
+  (obj 'NULL?))
+(define (true? obj)
+  (not (false? obj)))
+
+;;======================================================================
+
+
 
 (define (cadr x) (car (cdr x)) )
 (define (caddr x) (car (cdr (cdr x)))) 
