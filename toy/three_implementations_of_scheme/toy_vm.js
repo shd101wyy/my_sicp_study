@@ -1399,6 +1399,8 @@ var VM = function(instructions, environment, acc, pc, stack)
     }
     else
     {
+        console.log(FormatInst(instructions[pc]));
+
         var inst = instructions[pc];
         var arg0 = inst[0];
         var arg1 = inst[1];
@@ -1472,7 +1474,7 @@ var VM = function(instructions, environment, acc, pc, stack)
             {
                 // run closure
                 var start_pc = closure_start_pc(acc);
-                var base_environment = closure_environment(acc);
+                var base_environment = closure_environment(acc).slice(0);
                 // extend base_environment
                 base_environment.push(stack[stack.length - 1]);
                 // get new acc
@@ -1627,8 +1629,8 @@ var PrintInstructions = function(insts)
 /*
 (define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1))))))
 */
-// var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) (f 1)"
-var x = "(define add (lambda (a b) (+ a b))) (add 3 4)"
+var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) (f 5)"
+// var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
 
