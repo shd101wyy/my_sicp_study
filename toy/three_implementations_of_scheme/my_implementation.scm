@@ -68,8 +68,8 @@
 (define ATOM 4)
 (define DICTIONARY 6)
 (define NIL 5)
-(define INTEGER 6)
-(define FLOAT 7)
+(define INTEGER 7)
+(define FLOAT 8)
 
 ;; true is 1
 (define (build-true)
