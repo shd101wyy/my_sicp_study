@@ -1400,7 +1400,7 @@ var _add = function(stack_param)
     if(arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
     {
         var result = arg0.num + arg1.num
-        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
             return build_number(result, FLOAT);
         }
@@ -1428,7 +1428,7 @@ var _sub = function(stack_param)
     }
     else{
         var result = arg0.num - arg1.num
-        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
             return build_number(result, FLOAT);
         }
@@ -1447,7 +1447,7 @@ var _mul = function(stack_param)
     }
     else{
         var result = arg0.num * arg1.num
-        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
             return build_number(result, FLOAT);
         }
@@ -1465,7 +1465,7 @@ var _div = function(stack_param)
         return build_false();
     }
     else{
-        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
             return build_number(arg0.num/arg1.num, FLOAT);
         }
@@ -1873,7 +1873,7 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(define x 15) (display x)"
+var x = "(define x 15) (display (/ 4 3.0))"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
