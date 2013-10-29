@@ -1169,13 +1169,89 @@ var _null$ = function(stack_param)
     return build_false();
 }
 
+var _add = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    {
+        error("Function + only supports numbers now");
+        return build_false();
+    }
+    else{
+        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        {
+            return build_number(arg0.num+arg1.num, FLOAT);
+        }
+        return build_number(arg0.num+arg1.num, INTEGER);
+    }
+}
+var _sub = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    {
+        error("Function - only supports numbers now");
+        return build_false();
+    }
+    else{
+        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        {
+            return build_number(arg0.num-arg1.num, FLOAT);
+        }
+        return build_number(arg0.num-arg1.num, INTEGER);
+    }
+}
+var _mul = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    {
+        error("Function * only supports numbers now");
+        return build_false();
+    }
+    else{
+        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        {
+            return build_number(arg0.num*arg1.num, FLOAT);
+        }
+        return build_number(arg0.num*arg1.num, INTEGER);
+    }
+}
+var _div = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    {
+        error("Function / only supports numbers now");
+        return build_false();
+    }
+    else{
+        if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
+        {
+            return build_number(arg0.num/arg1.num, FLOAT);
+        }
+        var result = arg0.num / arg1.num;
+        if(isInteger(result)) 
+            return build_number(result, INTEGER)
+        return build_number(result, FLOAT);
+    }
+}
+
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
-'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?'];
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/'];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, builtin_procedure$,
-    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$
+    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div
 ];
 
 /*
@@ -1327,9 +1403,9 @@ var VM = function(instructions, environment, acc, pc, stack)
             if(arg2 === 0)    // atom
                 a = build_atom(arg1)
             else if (arg2 === 1)  // integer
-                a = build_number(arg1, INTEGER)
+                a = build_number(parseInt(arg1), INTEGER)
             else if (arg2 === 2) // float
-                a = build_number(arg1, FLOAT)
+                a = build_number(parseFloat(arg1), FLOAT)
             else
                 error("VM constant: Instruction Error");
 
@@ -1542,7 +1618,7 @@ var PrintInstructions = function(insts)
 /*
     test lexer parser
 */
-var x = "(define x 12)(set! x 15)(integer? x)"
+var x = "(define x 12) (+ x 15)"
 var l = Lexer(x);
 var s = Parser(l);
 
