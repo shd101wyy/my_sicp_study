@@ -852,7 +852,7 @@ var build_list = function(stack_param)
 }
 
 // build vector
-var build_vector = function(stack_param)
+var Vector = function(stack_param)
 {
    this.vector = stack_param;
    this.ref = function(index)
@@ -875,15 +875,19 @@ var build_vector = function(stack_param)
     this.NULL = false   // for virtual machine check
     this.TYPE = VECTOR  // for virtual machien check
 }
+var build_vector = function(stack_param)
+{
+    return new Vector(stack_param)
+}
 
 // build dictionary
-var build_dictionary = function(stack_param)
+var Dictionary = function(stack_param)
 {
-    var dict = {};
+    this.dict = {};
     /*
         init dictionary
     */
-    for(var i = 0 ; i < stack_param; i = i + 2)
+    for(var i = 0 ; i < stack_param.length; i = i + 2)
     {
         var key_obj = stack_param[i];
         var value_obj = stack_param[i+1];
@@ -892,7 +896,7 @@ var build_dictionary = function(stack_param)
             error("Invalid Key");
             break;
         }
-        dict[key_obj.atom] = value_obj;
+        this.dict[key_obj.atom] = value_obj;
     }
     /*
         set value according to key
@@ -920,6 +924,10 @@ var build_dictionary = function(stack_param)
 
     this.NULL = false   // for virtual machine check
     this.TYPE = DICTIONARY  // for virtual machien check 
+}
+var build_dictionary = function(stack_param)
+{
+    return new Dictionary(stack_param);
 }
 /*
     Build Closure Data Type
@@ -1188,12 +1196,11 @@ var formatVector = function(v)
 var formatDictionary = function(d)
 {
     var output = "{";
-    var p = v.vector; // pointer
-    for(var i = 0; i < p.length; i = i + 2;)
+    var p = d.dict; // pointer
+    for(var key in p)
     {
-        var key = p[i];
         output = output + key + " "
-        var c = p[i+1];
+        var c = p[key];
         if(c.TYPE === NUMBER)
             output = output + formatNumber(c) + ", ";
         else if (c.TYPE === ATOM)
@@ -1281,6 +1288,21 @@ var _str = function(stack_param)
         error("Function display: Invalid Parameters Type");
         return new ATOM('undefined');
     }
+}
+var _atom_ref = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE!===ATOM)
+    {
+        error("Function atom-ref: Invalid Parameters Type");
+    }
+    if(arg1.TYPE!===INTEGER)
+    {
+        error("Function atom-ref: Invalid Parameters Type; Refer index should be integer");
+    }
+    return build_atom(arg0.atom[arg1.num]);
 }
 
 var _dictionary = function(stack_param)
@@ -1455,10 +1477,10 @@ var _div = function(stack_param)
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
-'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str'];
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
-    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str
+    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref
 ];
 
 /*
@@ -1849,7 +1871,7 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(define x \"Hello World\")"
+var x = "(+ 'a 'bc)"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
