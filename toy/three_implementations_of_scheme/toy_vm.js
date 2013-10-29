@@ -1089,11 +1089,198 @@ var _builtin_procedure$ = function(stack_param)
     var v = stack_param[0];
     return v.TYPE === BUILTIN_PROCEDURE ? build_true() : build_false();
 }
+/*
+    stdout
+*/
+/*
+    format data type to javascript string
+*/
+var formatNumber = function(n)
+{
+    return n.num;
+}
+var formatAtom = function(a)
+{
+    return a.atom;
+}
+var formatList = function(l) // format list object to javascript string
+{
+    if(l.NULL) // it is null
+    {
+        return '()';
+    }
+    else
+    {
+        var output = "(";
+        var p = l; // pointer
+        while(1)
+        {
+            if(l.NULL) // finish
+            {
+                output = output + ")";
+                break;
+            }
+            if(l.TYPE !== LIST) // pair
+            {
+                var c = l;
+                output = output + ". ";
+                if(c.TYPE === NUMBER)
+                    output = output + formatNumber(c) + ")";
+                else if (c.TYPE === ATOM)
+                    output = output + formatAtom(c) + ")";
+                else if (c.TYPE === LIST)
+                    output = output + formatList(c) + ")";
+                else if (c.TYPE === VECTOR)
+                    output = output + formatVector(c) + ")";
+                else if (c.TYPE === DICTIONARY)
+                    output = output + formatDictionary(c) + ")";
+                else if (c.TYPE === CLOSURE)
+                    output = output + "< user-defined-procedure >)" ;
+                else if (c.TYPE === BUILTIN_PROCEDURE)
+                    output = output + "< builtin-procedure >)"      ;
+                break;
+            }
+            var c = l.car;
+            if(c.TYPE === NUMBER)
+                output = output + formatNumber(c) + " ";
+            else if (c.TYPE === ATOM)
+                output = output + formatAtom(c) + " ";
+            else if (c.TYPE === LIST)
+                output = output + formatList(c) + " ";
+            else if (c.TYPE === VECTOR)
+                output = output + formatVector(c) + " ";
+            else if (c.TYPE === DICTIONARY)
+                output = output + formatDictionary(c) + " ";
+            else if (c.TYPE === CLOSURE)
+                output = output + "< user-defined-procedure > " ;
+            else if (c.TYPE === BUILTIN_PROCEDURE)
+                output = output + "< builtin-procedure > "      ;
+            l = l.cdr; 
+        }
+        return output;
+    }
+}
+var formatVector = function(v)
+{
+    var output = "[";
+    var p = v.vector; // pointer
+    for(var i = 0; i < p.length; i++)
+    {
+        var c = p[i];
+        if(c.TYPE === NUMBER)
+            output = output + formatNumber(c) + " ";
+        else if (c.TYPE === ATOM)
+            output = output + formatAtom(c) + " ";
+        else if (c.TYPE === LIST)
+            output = output + formatList(c) + " ";
+        else if (c.TYPE === VECTOR)
+            output = output + formatVector(c) + " ";
+        else if (c.TYPE === DICTIONARY)
+            output = output + formatDictionary(c) + " ";
+        else if (c.TYPE === CLOSURE)
+            output = output + "< user-defined-procedure > " ;
+        else if (c.TYPE === BUILTIN_PROCEDURE)
+            output = output + "< builtin-procedure > "      ;
+    }
+    output = output + "]"
+    return output;
+}
+var formatDictionary = function(d)
+{
+    var output = "{";
+    var p = v.vector; // pointer
+    for(var i = 0; i < p.length; i = i + 2;)
+    {
+        var key = p[i];
+        output = output + key + " "
+        var c = p[i+1];
+        if(c.TYPE === NUMBER)
+            output = output + formatNumber(c) + ", ";
+        else if (c.TYPE === ATOM)
+            output = output + formatAtom(c) + ", ";
+        else if (c.TYPE === LIST)
+            output = output + formatList(c) + ", ";
+        else if (c.TYPE === VECTOR)
+            output = output + formatVector(c) + ",";
+        else if (c.TYPE === DICTIONARY)
+            output = output + formatDictionary(c) + ", ";
+        else if (c.TYPE === CLOSURE)
+            output = output + "< user-defined-procedure >, " ;
+        else if (c.TYPE === BUILTIN_PROCEDURE)
+            output = output + "< builtin-procedure >, "      ;
+    }
+    output = output + "}"
+    return output;
+}
 var _display = function(stack_param)
 {
     checkParam(stack_param, 1);
     var v = stack_param[0];
-    console.log(v.TYPE);
+    if(v.TYPE === NUMBER)
+    {
+        console.log(formatNumber(v));
+        return new ATOM('undefined');
+    }
+    else if (v.TYPE === ATOM)
+    {
+        console.log(formatAtom(v));
+        return new ATOM('undefined');
+    }
+    else if (v.TYPE === LIST)
+    {
+        console.log(formatList(v));
+        return new ATOM('undefined');
+    }
+    else if (v.TYPE === VECTOR)
+    {
+        console.log(formatVector(v));
+        return new ATOM('undefined');
+    }
+    else if (v.TYPE === DICTIONARY)
+    {
+        console.log(formatDictionary(v));
+        return new ATOM('undefined');
+    }
+    else if (v.TYPE === CLOSURE)
+    {
+        console.log("< user-defined-procedure >");
+        return new ATOM('undefined');
+    }
+    else if (v.TYPE === BUILTIN_PROCEDURE)
+    {
+        console.log("< builtin-procedure >")
+        return new ATOM('undefined');
+    }
+    else
+    {
+        error("Function display: Invalid Parameters Type");
+        return new ATOM('undefined');
+    }
+}
+var _str = function(stack_param)
+{
+    // change obj to atom
+    checkParam(stack_param, 1);
+    var v = stack_param[0];
+    if(v.TYPE === NUMBER)
+        return build_atom(formatNumber(v));
+    else if (v.TYPE === ATOM)
+        return build_atom(formatAtom(v));
+    else if (v.TYPE === LIST)
+        return build_atom(formatList(v));
+    else if (v.TYPE === VECTOR)
+        return build_atom(formatVector(v));
+    else if (v.TYPE === DICTIONARY)
+        return build_atom(formatDictionary(v));
+    else if (v.TYPE === CLOSURE)
+        return build_atom("< user-defined-procedure >");
+    else if (v.TYPE === BUILTIN_PROCEDURE)
+        return build_atom('undefined');
+    else
+    {
+        error("Function display: Invalid Parameters Type");
+        return new ATOM('undefined');
+    }
 }
 
 var _dictionary = function(stack_param)
@@ -1186,18 +1373,23 @@ var _add = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    if(arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
     {
-        error("Function + only supports numbers now");
-        return build_false();
-    }
-    else{
         var result = arg0.num + arg1.num
         if(arg0.type===FLOAT || arg1.TYPE === FLOAT)
         {
             return build_number(result, FLOAT);
         }
         return build_number(result, INTEGER);
+    }
+    else if (arg0.TYPE === ATOM && arg1.TYPE === ATOM)
+    {
+        return build_atom(arg0.atom + arg1.atom); // concat string
+    }
+    else
+    {
+        error("Function + only supports number + number and atom + atom now");
+        return build_false();
     }
 }
 var _sub = function(stack_param)
@@ -1263,10 +1455,10 @@ var _div = function(stack_param)
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
-'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/'];
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str'];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
-    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div
+    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str
 ];
 
 /*
@@ -1307,6 +1499,14 @@ var dictionary$ = function(v)
 var number$ = function(v)
 {
     return v.TYPE === NUMBER ? true : false;
+}
+var integer$ = function(v)
+{
+    return v.TYPE === NUMBER && v.type === INTEGER ? true : false;
+}
+var float$ = function(v)
+{
+    return v.TYPE === NUMBER && v.type === FLOAT ? true : false;
 }
 var list$ = function(v)
 {
