@@ -115,7 +115,7 @@ var Lexer= function(input_str){
             }
             output.push('(')
             output.push('quote')
-            output.push(input_str.slice(start+1, i))
+            output.push(input_str.slice(start, i+1))
             output.push(')')
         }
         else { // atom or number
@@ -434,6 +434,7 @@ var lambda_body  = function(exp)
 {
     return exp.slice(2);
 }
+// the env here is a copy of env
 var compile_lambda = function(args, body, env, instructions)
 {
     // save current index, which is the index of (close arg1)
@@ -444,8 +445,6 @@ var compile_lambda = function(args, body, env, instructions)
     env.push(args);
     // compile body
     compile_sequence(body, env, instructions);
-    // restore symbol_table
-    env.pop();
     // add return
     instructions.push([RETURN, 0, 0]);
     // set close 2nd arg to index of return
@@ -618,7 +617,7 @@ var Compiler = function(exp, env, instructions)
         {
             compile_lambda(lambda_arguments(exp),
                             lambda_body(exp),
-                            env,
+                            env.slice(0),
                             instructions);
         }
         else{
@@ -744,17 +743,29 @@ var build_atom = function(atom)
     return new Atom(atom);
 }
 // build number data type
-var Number = function(num, type)
+// build integer
+var Integer = function(num)
 {
     this.num = num;
-    this.type = type;
+    this.type = INTEGER;
 
-    this.NULL = false   // for virtual machine check
-    this.TYPE = NUMBER  // for virtual machien check
+    this.NULL = false;
+    this.TYPE = NUMBER;
+}
+// build float
+var Float = function(num)
+{
+    this.num = num;
+    this.type = FLOAT;
+
+    this.NULL = false;
+    this.TYPE = NUMBER;
 }
 var build_number = function(num, type)
 {
-    return new Number(num, type);
+    if(type===INTEGER)
+        return new Integer(num)
+    return new Float(num);
 }
 
 // build true data type
@@ -1471,7 +1482,7 @@ var VM = function(instructions, environment, acc, pc, stack)
             {
                 // run closure
                 var start_pc = closure_start_pc(acc);
-                var base_environment = closure_environment(acc).slice(0);
+                var base_environment = closure_environment(acc).slice(0); // this env is a copy of original env, 所以它push对原来的没有影响
                 // extend base_environment
                 base_environment.push(stack[stack.length - 1]);
                 // get new acc
@@ -1480,8 +1491,6 @@ var VM = function(instructions, environment, acc, pc, stack)
                            build_atom('done'),
                            start_pc,
                            stack);
-                // restore closure_base_environment
-                base_environment.pop();
                 // pop argument frame
                 stack.pop();
                 // restore environment
@@ -1634,7 +1643,7 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(define f (lambda () (lambda (msg) (if (eq? msg 'a) 1 2)))) (define a (f)) (a 'a)"
+var x = "(define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (define b (f)) (a 'b) (b 'a)"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
