@@ -22,6 +22,20 @@
 				top: 650px;
 				left: 45%;
 			}
+			#save
+			{
+				position: absolute;
+				width: 100px;
+				top: 700px;
+				left: 45%;
+			}
+			#load
+			{
+				position: absolute;
+				width: 100px;
+				top: 750px;
+				left: 45%;
+			}
 		</style>
 	</head>
 	<body>
@@ -30,9 +44,28 @@
 		<button id="run" onclick="run()"> 
 			RUN
 		</button>
+		<button id="save" onclick="save()">
+			SAVE
+		</button>
+		<button id="load" onclick="load()">
+			LOAD
+		</button>
 	</body>
 
 	<script type="text/javascript">
+	 	var toy_file_system = {};
+	 	if(window.localStorage)
+	 	{
+	 		if("toy" in window.localStorage)
+	 		{
+	 			console.log(window.localStorage)
+	 			toy_file_system = JSON.parse(window.localStorage['toy']);
+	 		}
+	 		else
+	 		{
+	 			window.localStorage['toy'] = "{}";
+	 		}
+	 	}
 		var run = function()
 		{
 			var content = document.getElementById('textarea').value;
@@ -66,5 +99,33 @@
 			console.log(env)
 
 		}
+
+
+
+
+		var save = function()
+		{
+			var content = document.getElementById('textarea').value;
+			var save_name = prompt('Save As:');
+			toy_file_system[save_name] = content
+			console.log(JSON.stringify(toy_file_system));
+			window.localStorage['toy'] = JSON.stringify(toy_file_system);
+		}
+
+		var load = function()
+		{
+			var existed_files = ""
+			for(var i in toy_file_system)
+			{
+				existed_files = existed_files + i + ", "
+			}
+			alert("Existed Files: " + existed_files);
+
+			var load_name = prompt('Load ');
+			document.getElementById('textarea').value = toy_file_system[load_name];
+		}
+
+
+
 	</script>
 </html>
