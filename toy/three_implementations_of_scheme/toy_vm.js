@@ -1628,7 +1628,16 @@ var PrintInstructions = function(insts)
 */
 /*
 (define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1))))))
+(define f (lambda ()
+    (define x '(1 2))
+    (lambda (msg)
+        (cond ((eq? msg 'a)
+               x)
+              (else
+                (set-car! x 12)))
+        )))
 */
+
 var x = "(define f (lambda (n) (if (eq? n 0) 1 (* n (f (- n 1)))))) (f 5)"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
