@@ -17,7 +17,7 @@
 ;;    stack
 
 ;;    instructions
-;;    const value     ; save value in accumulator
+;;    const value type; save value in accumulator. type: 0-> atom, 1->integer, 2->float
 ;;    refer n m       ; get value from stack n, m and save to accumulator
 ;;    assign n m      ; get value from accumulator and save it to stack n m
 ;;    close index-of-return ; create closure
@@ -75,7 +75,7 @@ var Lexer= function(input_str){
         // meet array
         else if (input_str[i] == '['){
         	output.push('(')
-        	output.push('array')
+        	output.push('vector')
         }
         else if (input_str[i] == '{'){
         	output.push('(')
@@ -535,6 +535,11 @@ var compile_list = function(exp, env, instructions)
 function isNumber(n) {
   return !isNaN(parseFloat(n)) && isFinite(n);
 }
+/*
+    check whether string is integer
+*/
+var isInteger = function(n){ return n==="0" || /^[1-9][0-9]*$/.test(n) }
+var isFloat = function(n){return isNumber(n) && !(isInteger(n))}
 /* 
     check whether input is pair 
     here the pair is array in js
@@ -571,11 +576,18 @@ var Compiler = function(exp, env, instructions)
         var tag = exp[0];
         if(tag === "quote")
         {
-            if(pair$(exp[1]))
+            if(pair$(exp[1])) // list
             {
                 compile_list(exp[1], env, instructions);
             }
-            else 
+            else if (isNumber(exp[1])) // number
+            {
+                if(isInteger(exp))
+                    instructions.push([CONSTANT, exp, 1])
+                else
+                    instructions.push([CONSTANT, exp, 2])
+            }
+            else  // symbol
             {
                 instructions.push([CONSTANT, exp[1], 0]);
             }
@@ -618,7 +630,10 @@ var Compiler = function(exp, env, instructions)
     }
     else // constant
     {
-        instructions.push([CONSTANT, exp, 0])
+        if(isInteger(exp))
+            instructions.push([CONSTANT, exp, 1])
+        else
+            instructions.push([CONSTANT, exp, 2])
     }
 }
 
@@ -1294,9 +1309,19 @@ var VM = function(instructions, environment, acc, pc, stack)
         var arg2 = inst[2];
         if(arg0 === CONSTANT) // constant
         {
+            var a;
+            if(arg2 === 0)    // atom
+                a = build_atom(arg1)
+            else if (arg2 === 1)  // integer
+                a = build_number(arg1, INTEGER)
+            else if (arg2 === 2) // float
+                a = build_number(arg1, FLOAT)
+            else
+                error("VM constant: Instruction Error");
+
             return VM(instructions,
                 environment,
-                arg1,
+                a,
                 pc+1,
                 stack);
         }
@@ -1499,7 +1524,7 @@ var PrintInstructions = function(insts)
         console.log(FormatInst(insts[i]));
     }
 }
-var x = "(lambda (a b) (+ a b))"
+var x = "(define x {:a 12 :b 14.02})"
 var l = Lexer(x);
 var s = Parser(l);
 
