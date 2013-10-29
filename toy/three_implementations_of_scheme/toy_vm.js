@@ -1226,42 +1226,42 @@ var _display = function(stack_param)
     if(v.TYPE === NUMBER)
     {
         console.log(formatNumber(v));
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else if (v.TYPE === ATOM)
     {
         console.log(formatAtom(v));
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else if (v.TYPE === LIST)
     {
         console.log(formatList(v));
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else if (v.TYPE === VECTOR)
     {
         console.log(formatVector(v));
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else if (v.TYPE === DICTIONARY)
     {
         console.log(formatDictionary(v));
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else if (v.TYPE === CLOSURE)
     {
         console.log("< user-defined-procedure >");
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else if (v.TYPE === BUILTIN_PROCEDURE)
     {
         console.log("< builtin-procedure >")
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
     else
     {
         error("Function display: Invalid Parameters Type");
-        return new ATOM('undefined');
+        return build_atom('undefined')
     }
 }
 var _str = function(stack_param)
@@ -1294,11 +1294,11 @@ var _atom_ref = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE!===ATOM)
+    if(arg0.TYPE!==ATOM)
     {
         error("Function atom-ref: Invalid Parameters Type");
     }
-    if(arg1.TYPE!===INTEGER)
+    if(arg1.TYPE!==INTEGER)
     {
         error("Function atom-ref: Invalid Parameters Type; Refer index should be integer");
     }
@@ -1871,7 +1871,7 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(+ 'a 'bc)"
+var x = "(define x {:a 12}) (x :a 15) (display x)"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
 var l = Lexer(x);
 var s = Parser(l);
