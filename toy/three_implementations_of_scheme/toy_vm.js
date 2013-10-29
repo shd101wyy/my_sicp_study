@@ -1250,7 +1250,7 @@ var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/'];
 var primitive_procedure_list = [
-    _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, builtin_procedure$,
+    _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div
 ];
 
@@ -1618,7 +1618,7 @@ var PrintInstructions = function(insts)
 /*
     test lexer parser
 */
-var x = "(define add (lambda (a b) (+ a b))) (add 3 4)"
+var x = "(define add (lambda () (lambda () 12))) ((add))"
 var l = Lexer(x);
 var s = Parser(l);
 
