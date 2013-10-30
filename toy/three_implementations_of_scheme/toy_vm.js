@@ -93,8 +93,6 @@ var Lexer= function(input_str){
             input_str[i]=='@'||input_str[i]=="'"||input_str[i]==','){//||
             //input_str[i]==':'){
             output.push(input_str[i])
-            if(input_str[i] === "@")
-                output.push("'");
         }
         /*
 			Comment:

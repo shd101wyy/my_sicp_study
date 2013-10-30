@@ -7,6 +7,7 @@
 ;; var primitive_symbol_table_list = [
 ;; 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 ;; 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
+;; '<'
 ;; ];
 
 ;; define procedure that gets list length
@@ -16,3 +17,5 @@
 			count
 			(list-length-iter (cdr l) (+ count 1))))
 	(list-length-iter l 0)))
+(define (symbol? x)
+	(atom? x))
