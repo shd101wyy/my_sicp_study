@@ -15,33 +15,46 @@
 				left: 20%;
 				font-size: 15px;
 				border-width: 0px;
+				background-color: white;
+
 			}
+			#terminal{
+				width: 60%;
+				height: 100px;
+				position: absolute;
+				left: 20%;
+				top: 650px;
+				background-color: white;
+				color: black;
+				overflow: scroll;
+			}
+			/*
 			#run
 			{
 				position: absolute;
-				width: 100px;
+				width: 5%;
 				top: 650px;
-				left: 45%;
+				left: 30%%;
 			}
 			#save
 			{
 				position: absolute;
-				width: 100px;
-				top: 700px;
-				left: 45%;
+				width: 5%;
+				top: 650px;
+				left: 50%%;
 			}
 			#load
 			{
 				position: absolute;
-				width: 100px;
-				top: 750px;
-				left: 45%;
-			}
+				width: 5%;
+				top: 650px;
+				left: 70%%;
+			}*/
 		</style>
 	</head>
 	<body>
-		<textarea id="textarea">
-		</textarea>
+		<div id="textarea" contenteditable="true">
+		</div>
 		<button id="run" onclick="run()"> 
 			RUN
 		</button>
@@ -51,10 +64,33 @@
 		<button id="load" onclick="load()">
 			LOAD
 		</button>
+		<button id="on_off_terminal" onclick="on_off_terminal()">
+			Terminal on/off 
+		</button>
+		<div id="terminal"></div>
 	</body>
 
 	<script type="text/javascript">
+		var original_console_log = console.log; // save console.log
 	 	var toy_file_system = {};
+ 
+		 // redefine console.log
+	 	var printInTerminal = function(input_str)
+	 	{
+	 		document.getElementById('terminal').innerHTML+=input_str;
+	 	}
+	 	console.log = printInTerminal;
+	 	var on_off_terminal = function() // turn on terminal of not
+	 	{
+	 		if (console.log == original_console_log)
+	 		{
+	 			console.log = printInTerminal;
+	 		}
+	 		else
+	 		{
+	 			console.log = original_console_log
+	 		}
+	 	}
 	 	if(window.localStorage)
 	 	{
 	 		if("toy" in window.localStorage)
@@ -69,7 +105,8 @@
 	 	}
 		var run = function()
 		{
-			var content = document.getElementById('textarea').value;
+			document.getElementById('terminal').innerHTML = ""; // clear terminal
+			var content = document.getElementById('textarea').innerText;
 			console.log(content);
 			/*
 				lexer and parser test
