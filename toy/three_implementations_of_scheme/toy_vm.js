@@ -1900,7 +1900,12 @@ var VM = function(instructions, environment, acc, pc, stack)
             else if (arg2 === 2) // float
                 a = build_number(parseFloat(arg1), FLOAT)
             else if (arg2 === 3) // string
-                a = build_atom(arg1.slice(1, arg1.length -1));
+            {
+                if(arg1.length == 2) // empty string
+                    a = ""
+                else 
+                    a = build_atom(arg1.slice(1, arg1.length -1));
+            }
             else
                 error("VM constant: Instruction Error");
 

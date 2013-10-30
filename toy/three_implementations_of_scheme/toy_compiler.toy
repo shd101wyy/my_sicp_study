@@ -26,7 +26,12 @@
 ;; check symbol
 (define (symbol? x)
 	(atom? x))
-
+;; check list
+(define (list? x)
+	(pair? x))
+;; check empty
+(define (empty? x)
+	(null? x))
 
 ;; vector->list
 (define (vector->list v)
@@ -35,3 +40,77 @@
 			'()
 			(cons (v i) (vector->list-iter v (+ i 1)))))
 	(vector->list-iter v 0))
+
+;; list->vector
+(define (list->vector l)
+	(define (list->vector-iter l output i)
+		(if (null? l)
+			output
+			(begin
+				(output i (car l))
+				(list->vector-iter (cdr l) output (+ i 1))
+				)))
+	(list->vector-iter l [] 0))
+
+;; vector slice
+(define (vector-slice v index1 index2)
+	(define (vector-slice-iter i output)
+		(if (eq? (+ i index1) index2)
+			output
+			(begin
+				(output i (v (+ i index1)))
+				(vector-slice-iter (+ i 1) output)
+				)))
+	(vector-slice-iter 0 []))
+;; string(atom) slice
+(define (string-slice s index1 index2)
+	(define (string-slice-iter i output)
+		(if (eq? i index2)
+			output
+			(string-slice-iter (+ i 1) (+ output (atom-ref s i)))))
+	(string-slice-iter index1 ""))
+;; list slice
+(define (list-slice l index1 index2)
+	(define (list-slice-remove-ahead i l) ;; remove head
+		(if (eq? i index1)
+			l
+			(list-slice-remove-ahead (+ i 1) (cdr l))))
+	(define (list-slice-iter l count reach-count)
+		(if (eq? count reach-count)
+			'()
+			(cons (car l) (list-slice-iter (cdr l) (+ count 1) reach-count))))
+	(list-slice-iter (list-slice-remove-ahead 0 l)
+					 0
+					 (- index2 index1)))
+(define (error msg)
+	(display (+ "ERROR: " msg)))
+;; object slice
+;; support string, vector, list
+(define (slice obj i1 i2)
+	(cond ((pair? obj)
+			(list-slice obj i1 i2))
+		  ((vector? obj)
+		  	(vector-slice obj i1 i2))
+		  ((atom? obj)
+		  	(string-slice obj i1 i2))
+		  (else
+		  	(error "Function slice --- invalid parameter type"))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
