@@ -52,23 +52,6 @@
 				)))
 	(list->vector-iter l [] 0))
 
-;; vector slice
-(define (vector-slice v index1 index2)
-	(define (vector-slice-iter i output)
-		(if (eq? (+ i index1) index2)
-			output
-			(begin
-				(output i (v (+ i index1)))
-				(vector-slice-iter (+ i 1) output)
-				)))
-	(vector-slice-iter 0 []))
-;; string(atom) slice
-(define (string-slice s index1 index2)
-	(define (string-slice-iter i output)
-		(if (eq? i index2)
-			output
-			(string-slice-iter (+ i 1) (+ output (atom-ref s i)))))
-	(string-slice-iter index1 ""))
 ;; list slice
 (define (list-slice l index1 index2)
 	(define (list-slice-remove-ahead i l) ;; remove head
@@ -84,18 +67,6 @@
 					 (- index2 index1)))
 (define (error msg)
 	(display (+ "ERROR: " msg)))
-;; object slice
-;; support string, vector, list
-(define (slice obj i1 i2)
-	(cond ((pair? obj)
-			(list-slice obj i1 i2))
-		  ((vector? obj)
-		  	(vector-slice obj i1 i2))
-		  ((atom? obj)
-		  	(string-slice obj i1 i2))
-		  (else
-		  	(error "Function slice --- invalid parameter type"))))
-
 
 
 

@@ -1696,19 +1696,58 @@ var _len = function(stack_param)
         error("Function len: Invalid Parameters Type");
     }
 }
+var _slice = function(stack_param)
+{
+    checkParam(stack_param, 3);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    var arg2 = stack_param[2];
+    if(arg1.TYPE !== NUMBER || arg2.TYPE !== NUMBER)
+    {
+        error("Function slice --- invalid parameters type");
+        return build_atom('undefined');
+    }
+    if(arg0.TYPE === ATOM)
+    {
+        return build_atom(arg0.atom.slice(arg1.num, arg2.num));
+    }
+    else if (arg0.TYPE === VECTOR)
+    {
+        return build_vector(arg0.vector.slice(arg1.num, arg2.num));
+    }
+    else
+    {
+        error("Function slice --- only support atom(string) and vector slice")
+        return build_atom('undefined');
+    }
+}
+var _dictionary_keys = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg = stack_param[0];
+    if(arg.TYPE === DICTIONARY)
+    {
+        return build_vector(Object.keys(arg.dict))
+    }
+    else
+    {
+        error("Function dictionary-keys --- only support dictionary type data");
+        return build_atom('undefined');
+    }
+}
 
 
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
-,'<','len'
+,'<','len', 'slice', 'dictionary-keys'
 
 ];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
-    _lt, _len
+    _lt, _len, _slice, _dictionary_keys
 ];
 
 /*
