@@ -1768,12 +1768,27 @@ var apply_vector_procedure = function(v, stack_param)
     if(stack_param.length === 1)
     {
         var arg = stack_param[0];
-        if(arg.TYPE!==NUMBER)
+        if(arg.TYPE===NUMBER)
         {
-            error("Vector call: invalid parameters type");
-            return build_false();
+            return v.ref(arg.num);
         }  
-        return v.ref(arg.num);
+        else if (arg.TYPE === ATOM)
+        {
+            var key = arg.atom;
+            if(arg.atom === ":pop")
+                return primitive_procedure_list[18];
+            else if (arg.atom === ":push")
+                return primitive_procedure_list[17];
+            else if (arg.atom === ":length")
+                return build_number(v.vector.length, INTEGER)
+            else if (arg.atom === ":top")
+                return v.ref(v.vector.length - 1);
+        }
+        else
+        {
+             error("Vector call: invalid parameters type");
+            return build_false();
+        }
     }
     else if (stack_param.length === 2)
     {
@@ -1804,12 +1819,15 @@ var apply_dictionary_procedure = function(d, stack_param)
     if(stack_param.length === 1)
     {
         var arg = stack_param[0];
-        if(arg.TYPE!==ATOM)
+        if(arg.TYPE===ATOM)
+        {
+            return d.ref(arg.atom);
+        }  
+        else
         {
             error("Dictionary call: invalid parameters type");
             return build_false();
-        }  
-        return d.ref(arg.atom);
+        }
     }
     else if (stack_param.length === 2)
     {

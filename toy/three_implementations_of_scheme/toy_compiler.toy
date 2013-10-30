@@ -27,3 +27,7 @@
 (define (symbol? x)
 	(atom? x))
 
+
+;; vector->list
+(define (vector->list v)
+	(define (vector->list-iter v i)))
