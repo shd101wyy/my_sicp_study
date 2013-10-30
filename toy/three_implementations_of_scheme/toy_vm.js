@@ -1678,17 +1678,36 @@ var _lt = function(stack_param)
         return build_atom('undefined');
     }
 }
+var _len = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg = stack_param[0];
+    if(arg.TYPE === ATOM)
+    {
+        return build_number(arg.atom.length, INTEGER);
+    }
+    else if (arg.TYPE === VECTOR)
+    {
+        return build_number(arg.vector.length, INTEGER);
+    }
+    else
+    {
+        error("Function len: Invalid Parameters Type");
+    }
+}
 
 
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
-,'<'];
+,'<','len'
+
+];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
-    _lt
+    _lt, _len
 ];
 
 /*
@@ -1772,6 +1791,7 @@ var apply_vector_procedure = function(v, stack_param)
         {
             return v.ref(arg.num);
         }  
+        /*
         else if (arg.TYPE === ATOM)
         {
             var key = arg.atom;
@@ -1784,6 +1804,7 @@ var apply_vector_procedure = function(v, stack_param)
             else if (arg.atom === ":top")
                 return v.ref(v.vector.length - 1);
         }
+        */
         else
         {
              error("Vector call: invalid parameters type");
