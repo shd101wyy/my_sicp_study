@@ -617,6 +617,19 @@ var compile_list = function(exp, env, instructions)
             compile_list(exp[i], env, instructions);
             instructions.push([ARGUMENT, 0, 0]);
         }
+        else if (isNumber(exp[i])) // number
+        {
+            if(isInteger(exp[i]))
+            {
+                instructions.push([CONSTANT, exp[i], 1])
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            else
+            {
+                instructions.push([CONSTANT, exp[i], 2])
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+        }
         else
         {
             instructions.push([CONSTANT, exp[i], 0]);
@@ -645,6 +658,19 @@ var compile_quasiquote_list = function(exp, env, instructions)
             else
             {
                 compile_list(exp[i], env, instructions);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+        }
+        else if (isNumber(exp[i])) // number
+        {
+            if(isInteger(exp[i]))
+            {
+                instructions.push([CONSTANT, exp[i], 1])
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            else
+            {
+                instructions.push([CONSTANT, exp[i], 2])
                 instructions.push([ARGUMENT, 0, 0]);
             }
         }
@@ -712,10 +738,10 @@ var Compiler = function(exp, env, instructions)
             }
             else if (isNumber(exp[1])) // number
             {
-                if(isInteger(exp))
-                    instructions.push([CONSTANT, exp, 1])
+                if(isInteger(exp[1]))
+                    instructions.push([CONSTANT, exp[1], 1])
                 else
-                    instructions.push([CONSTANT, exp, 2])
+                    instructions.push([CONSTANT, exp[1], 2])
                 return;
             }
             else if (exp[1][0] === '"') // string
