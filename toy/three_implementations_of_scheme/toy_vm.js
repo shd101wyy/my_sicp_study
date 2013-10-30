@@ -93,6 +93,8 @@ var Lexer= function(input_str){
             input_str[i]=='@'||input_str[i]=="'"||input_str[i]==','){//||
             //input_str[i]==':'){
             output.push(input_str[i])
+            if(input_str[i] === "@")
+                output.push("'");
         }
         /*
 			Comment:
@@ -2022,31 +2024,34 @@ var PrintInstructions = function(insts)
 */
 // var x = "(define x 15) (display (/ 4 3.0))"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
-var x = "(if '() 2)"
+/*
+var x = "(define x @(,a a b))"
 var l = Lexer(x);
 var s = Parser(l);
 
 console.log(s)
 console.log("Finish testing lexer and parser")
 console.log("==========\n\n\n\n")
-
+*/
 /*
     test compiler
 */
+/*
 var symbol_table = Build_Symbol_Table();
 var instructions = [];
 var i = compile_sequence(s, symbol_table, instructions);
 PrintInstructions(i)
 console.log("Finish testing compiler")
 console.log("==========\n\n\n\n")
-
+*/
 /*
     test virtual machine
 */
+/*
 var env = Build_Environment();
 var o = VM(i, env, build_atom('done'), 0, []);
 console.log(env)
-
+*/
 
 
 
