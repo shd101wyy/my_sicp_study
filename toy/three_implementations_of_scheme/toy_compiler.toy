@@ -11,6 +11,8 @@
 
 ;; define procedure that gets list length
 (define list-length (lambda (l)
+	(define (list-length-iter l count)
+		)
 	(if (null? l)
 		0
 		(+ 1 (list-length (cdr l))))))

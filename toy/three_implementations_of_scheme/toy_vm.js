@@ -402,6 +402,9 @@ var if_consequent = function(exp)
 }
 var if_alternative = function(exp)
 {
+    // (if 1 2)
+    if(exp.length === 3)
+        return ['quote', 'undefined'] // return undefined
     return exp[3];
 }
 
@@ -421,6 +424,84 @@ var compile_if = function(test, consequent, alternative, env, instructions)
     Compiler(alternative, env, instructions); // compile alternative
     // change jmp 2nd argument      
     instructions[index_of_jmp][1] = instructions.length - index3 + 1;
+}
+/*
+    (cond ((judge1) (body1))
+          ((judge2) (body2))
+          ...
+          (else bodyn)
+        )
+        (define (cond-clauses exp) (cdr exp))
+
+(define (cond-else-clause? clause)
+  (eq? (cond-predicate clause) 'else))
+
+(define (cond-predicate clause) (car clause))
+
+(define (cond-actions clause) (cdr clause))
+
+(define (cond->if exp)
+  (expand-clauses (cond-clauses exp)))
+
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false                          ; no else clause
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (if (cond-else-clause? first)
+            (if (null? rest)
+                (sequence->exp (cond-actions first))
+                (error "ELSE clause isn't last -- COND->IF"
+                       clauses))
+            (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
+                     (expand-clauses rest))))))
+*/
+var make_if = function(predicate, consequent, alternative)
+{
+    return ['if', predicate, consequent, alternative];
+}
+var cond_clauses = function(exp){return exp.slice(1);}
+var cond_else_clause$ = function(clause){return clause[0] === 'else';}
+var cond_predicate = function(clause){return clause[0]}
+var cond_actions = function(clause){return clause.slice(1)}
+var cond_to_if = function(exp){return expand_clauses(cond_clauses(exp))}
+var make_begin = function(exp){ // ((define x 12)(set! x 13)) => (begin (define x 12) (set! x 13))
+    var output = ['begin'];
+    for(var i = 0; i < exp.length; i++){output.push(exp[i])}
+    return output;
+}
+var expand_clauses = function(clauses)
+{
+    var expand_clause_to_if = function(clauses, output, i){
+        if(i === clauses.length)
+            return output;
+        if(clauses[i][0]==='else')
+        {
+            if(i!==clauses.length - 1)
+            {
+                error("cond->if error. Else is not the last statement")
+                return;
+            }
+            var seq = clauses[i].slice(1);
+            output.push('begin');
+            for(var i = 0; i < seq.length; i++ ){output.push(seq[i])}
+            return output;
+        } 
+        output.push('if');
+        output.push(cond_predicate(clauses[i]));
+        output.push(make_begin(cond_actions(clauses[i])));
+        var consequent = [];
+        output.push(consequent);
+        return expand_clause_to_if(clauses, consequent, i+1);
+    }
+    var output = [];
+    var a = expand_clause_to_if(clauses, output, 0);
+    if(a.length == 0){
+        a.push('quote'); a.push([]);
+    }
+    console.log(output);
+    return output;
 }
 /*
     compile lambda
@@ -449,6 +530,23 @@ var compile_lambda = function(args, body, env, instructions)
     instructions.push([RETURN, 0, 0]);
     // set close 2nd arg to index of return
     instructions[index][1] = instructions.length - 1; 
+}
+/*
+    (define (add a b) (+ a b))
+    =>
+    (define add (lambda (a b) (+ a b)))
+*/
+var make_lambda = function(exp)
+{
+    var lambda_body = ['lambda'];
+    lambda_body.push(exp[1].slice(1));
+    var body = exp.slice(2);
+    for(var i = 0; i < body.length; i++)
+    {
+        lambda_body.push(body[i]);
+    }   
+    return [exp[0], exp[1][0], lambda_body];
+    
 }
 
 /*
@@ -569,7 +667,7 @@ var symbol$ = function(exp)
 var Compiler = function(exp, env, instructions)
 {
     if(symbol$(exp))  // it is symbol, so look for its value
-        compile_lookup(exp, env, instructions);
+        return compile_lookup(exp, env, instructions);
     else if (pair$(exp)) // array
     {
         var tag = exp[0];
@@ -577,7 +675,7 @@ var Compiler = function(exp, env, instructions)
         {
             if(pair$(exp[1])) // list
             {
-                compile_list(exp[1], env, instructions);
+                return compile_list(exp[1], env, instructions);
             }
             else if (isNumber(exp[1])) // number
             {
@@ -585,47 +683,69 @@ var Compiler = function(exp, env, instructions)
                     instructions.push([CONSTANT, exp, 1])
                 else
                     instructions.push([CONSTANT, exp, 2])
+                return;
             }
             else if (exp[1][0] === '"') // string
             {
                 instructions.push([CONSTANT, exp[1], 3]);
+                return;
             }
             else  // symbol
             {
                 instructions.push([CONSTANT, exp[1], 0]);
+                return;
             }
         }
         else if (tag === 'define')
         {
-            compile_define(definition_variable(exp),
+            /*
+                (define (add a b) (+ a b))
+            */
+            if(pair$(exp[1]))
+            {
+                return Compiler(make_lambda(exp), env, instructions)
+            }
+            return compile_define(definition_variable(exp),
                            definition_value(exp),
                            env,
                            instructions);
         }
         else if (tag === 'set!')
         {
-            compile_set(assignment_variable(exp),
+            if(pair$(exp[1]))
+            {
+                return Compiler(make_lambda(exp), env, instructions)
+            }
+            return compile_set(assignment_variable(exp),
                         assignment_value(exp),
                         env,
                         instructions);
         }
         else if (tag === 'if')
         {
-            compile_if(if_test(exp),
+            return compile_if(if_test(exp),
                         if_consequent(exp),
                         if_alternative(exp),
                         env,
                         instructions);
         }
+        else if (tag === 'cond')
+        {
+            return Compiler(cond_to_if(exp), env, instructions);
+        }
+        else if (tag === 'begin')
+        {
+            return compile_sequence(exp.slice(1), env, instructions);
+        }
         else if (tag === 'lambda')
         {
-            compile_lambda(lambda_arguments(exp),
+            return compile_lambda(lambda_arguments(exp),
                             lambda_body(exp),
                             env.slice(0),
                             instructions);
         }
         else{
-            compile_application(application_head(exp),
+            return compile_application(application_head(exp),
                                 application_args(exp),
                                 env,
                                 instructions)
@@ -637,6 +757,7 @@ var Compiler = function(exp, env, instructions)
             instructions.push([CONSTANT, exp, 1])
         else
             instructions.push([CONSTANT, exp, 2])
+        return;
     }
 }
 
@@ -1475,14 +1596,40 @@ var _div = function(stack_param)
         return build_number(Math.floor(result), FLOAT);
     }
 }
+var _lt = function(stack_param)
+{
+    checkParam(stack_param, 2);
+    var arg0 = stack_param[0];
+    var arg1 = stack_param[1];
+    if(arg0.TYPE === ATOM && arg1.TYPE === ATOM)
+    {
+        if(arg0.atom < arg1.atom)
+            return build_true();
+        return build_false();
+    }
+    else if (arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
+    {
+        if(arg0.num < arg1.num)
+            return build_true();
+        return build_false();
+    }
+    else
+    {
+        error("Function < only supports number < number and atom < atom comparison");
+        return build_atom('undefined');
+    }
+}
+
 
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
-'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'];
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
+,'<'];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
-    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref
+    _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
+    _lt
 ];
 
 /*
@@ -1759,7 +1906,7 @@ var VM = function(instructions, environment, acc, pc, stack)
             }
             else
             {
-                error("Invalid callign");
+                error("Invalid calling");
             }
         }
         else if (arg0 === GOTO)
@@ -1873,8 +2020,9 @@ var PrintInstructions = function(insts)
 
 (define f (lambda () (define x '(1 2)) (lambda (msg) (if (eq? msg 'a) x (set-car! x 12))))) (define a (f)) (a 'a)
 */
-var x = "(define x 15) (display (/ 4 3.0))"
+// var x = "(define x 15) (display (/ 4 3.0))"
 // var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
+var x = "(if '() 2)"
 var l = Lexer(x);
 var s = Parser(l);
 
