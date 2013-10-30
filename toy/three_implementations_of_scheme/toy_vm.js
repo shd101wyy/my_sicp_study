@@ -1779,13 +1779,16 @@ var apply_vector_procedure = function(v, stack_param)
     {
         var arg0 = stack_param[0];
         var arg1 = stack_param[1];
-        if(arg0.TYPE !== NUMBER)
+        if(arg0.TYPE === NUMBER)
+        {
+            v.set(arg0.num, arg1);
+            return v;
+        }
+        else
         {
             error("Vector call: invalid parameters type");
             return build_false();
         }
-        v.set(arg0.num, arg1);
-        return v;
     }
     else{
         error("Vector call: invalid parameters nums");
