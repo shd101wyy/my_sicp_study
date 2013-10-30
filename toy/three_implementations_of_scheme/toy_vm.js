@@ -627,6 +627,37 @@ var compile_list = function(exp, env, instructions)
     instructions.push([CALL, 0, 0]); // call procedure
 }
 /*
+    Compile list
+    with calculation
+*/
+var compile_quasiquote_list = function(exp, env, instructions)
+{
+    instructions.push([FRAME, 0, 0]);
+    for(var i = 0; i < exp.length; i++)
+    {
+        if(pair$(exp[i]))
+        {
+            if(exp[i][0] === 'unquote') // calculate
+            {
+                Compiler(exp[i][1], env, instructions);
+                instructions.push([ARGUMENT, 0, 0])
+            }
+            else
+            {
+                compile_list(exp[i], env, instructions);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+        }
+        else
+        {
+            instructions.push([CONSTANT, exp[i], 0]);
+            instructions.push([ARGUMENT, 0, 0]);
+        }
+    }
+    instructions.push([REFER, 0, 15]); // refer list procedure
+    instructions.push([CALL, 0, 0]); // call procedure
+}
+/*
     check whether string is number
 */
 function isNumber(n) {
@@ -671,10 +702,12 @@ var Compiler = function(exp, env, instructions)
     else if (pair$(exp)) // array
     {
         var tag = exp[0];
-        if(tag === "quote")
+        if(tag === "quote" || tag ==='quasiquote')
         {
             if(pair$(exp[1])) // list
             {
+                if(tag === 'quasiquote')
+                    return compile_quasiquote_list(exp[1], env, instructions);
                 return compile_list(exp[1], env, instructions);
             }
             else if (isNumber(exp[1])) // number
