@@ -1228,11 +1228,12 @@ var _cons = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
+    /*
     if(arg0.TYPE !== LIST)
     {
         error("Function cons: invalid type of param " );
         return build_false();
-    }
+    } */
     return cons(arg0, arg1);
 }
 var _closure$ = function(stack_param)

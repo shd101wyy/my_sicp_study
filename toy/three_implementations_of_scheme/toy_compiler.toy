@@ -30,4 +30,8 @@
 
 ;; vector->list
 (define (vector->list v)
-	(define (vector->list-iter v i)))
+	(define (vector->list-iter v i)
+		(if (eq? i (len v))
+			'()
+			(cons (v i) (vector->list-iter v (+ i 1)))))
+	(vector->list-iter v 0))
