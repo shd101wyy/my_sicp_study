@@ -29,6 +29,7 @@
 ;;              ; else jump
 ;;    jmp steps       ; jmp steps
 ;;    goto pc         ; goto pc; this instruction may replace jmp in the future
+;;    ratio numer denom ;; create ratio number
 ;;
 ;;
 */
@@ -43,6 +44,8 @@ var CALL = 8;
 var TEST = 9;
 var JMP = 10;
 var GOTO = 11;
+var RATIO = 12;
+
 var error = function(x)
 {
     console.log("ERROR: " + x);
@@ -630,6 +633,10 @@ var compile_list = function(exp, env, instructions)
                 instructions.push([ARGUMENT, 0, 0]);
             }
         }
+        else if (isRatio(exp[i]))
+        {
+            instructions.push([RATIO, getNumerator(exp[i]), getDenominator(exp[i])]);
+        }
         else
         {
             instructions.push([CONSTANT, exp[i], 0]);
@@ -674,6 +681,10 @@ var compile_quasiquote_list = function(exp, env, instructions)
                 instructions.push([ARGUMENT, 0, 0]);
             }
         }
+        else if (isRatio(exp[i]))
+        {
+            instructions.push([RATIO, getNumerator(exp[i]), getDenominator(exp[i])]);
+        }
         else
         {
             instructions.push([CONSTANT, exp[i], 0]);
@@ -694,6 +705,28 @@ function isNumber(n) {
 */
 var isInteger = function(n){ return n==="0" || /^[1-9][0-9]*$/.test(n) }
 var isFloat = function(n){return isNumber(n) && !(isInteger(n))}
+var isRatio = function(n)
+{
+    var index_of_slash = n.indexOf("/");
+    if(index_of_slash === -1) return false;
+    var numer = n.slice(0, index_of_slash);
+    var denom = n.slice(index_of_slash+1);
+    if(isInteger(numer) && isInteger(denom)) // didn't consider the case denominator is 0
+    {
+        return true
+    }
+}
+// The Below 2 functions can be used
+// when "n" has been proved to be ratio
+var getNumerator = function(n)
+{
+    return n.slice(0, n.indexOf("/"));
+}
+var getDenominator = function(n)
+{
+    return n.slice(n.indexOf("/")+1);
+}
+
 /* 
     check whether input is pair 
     here the pair is array in js
@@ -709,7 +742,7 @@ var pair$ = function(exp)
 */
 var symbol$ = function(exp)
 {
-    if(typeof(exp) === 'string' && isNumber(exp) == false)
+    if(typeof(exp) === 'string' && isNumber(exp) === false && isRatio(exp) === false)
     {
         return true;
     }
@@ -742,6 +775,11 @@ var Compiler = function(exp, env, instructions)
                     instructions.push([CONSTANT, exp[1], 1])
                 else
                     instructions.push([CONSTANT, exp[1], 2])
+                return;
+            }
+            else if (isRatio(exp[1]))
+            {
+                instructions.push([RATIO, getNumerator(exp[1]), getDenominator(exp[1])]);
                 return;
             }
             else if (exp[1][0] === '"') // string
@@ -812,7 +850,9 @@ var Compiler = function(exp, env, instructions)
     }
     else // constant
     {
-        if(isInteger(exp))
+        if(isRatio(exp))
+            instructions.push([RATIO, getNumerator(exp), getDenominator(exp)]);
+        else if(isInteger(exp))
             instructions.push([CONSTANT, exp, 1])
         else
             instructions.push([CONSTANT, exp, 2])
@@ -909,10 +949,11 @@ var VECTOR = 3;
 var ATOM = 4;
 var NIL = 5;
 var DICTIONARY = 6;
-var INTEGER = 7;
+var INTEGER = RATIO; // integer is part of ratio
 var FLOAT = 8;
 var CLOSURE = 9;  // data type 
 var BUILTIN_PROCEDURE = 10;
+// var RATIO = 12; RATIO is defined as instruction as well. so I will not define it here
 
 // build atom data type
 var Atom = function(atom)
@@ -928,34 +969,24 @@ var build_atom = function(atom)
 }
 // build number data type
 // build integer
-var Integer = function(num)
+var Number = function(numer, denom, type)
 {
-    this.num = num;
-    this.type = INTEGER;
+    this.numer = numer;
+    this.denom = denom;
+    this.type = type;
 
-    this.NULL = false;
-    this.TYPE = NUMBER;
+    this.NULL = false;  // for virtual machine check
+    this.TYPE = NUMBER; // for virtual machien check
 }
-// build float
-var Float = function(num)
+var build_number = function(numer, denom, type)
 {
-    this.num = num;
-    this.type = FLOAT;
-
-    this.NULL = false;
-    this.TYPE = NUMBER;
-}
-var build_number = function(num, type)
-{
-    if(type===INTEGER)
-        return new Integer(num)
-    return new Float(num);
+    return new Number(numer, denom, type)
 }
 
 // build true data type
 var build_true = function()
 {
-    return build_number(1, NUMBER);
+    return build_number(1, 1, RATIO);
 }
 // build false data type
 var build_false = function()
@@ -1286,9 +1317,13 @@ var _builtin_procedure$ = function(stack_param)
 */
 var formatNumber = function(n)
 {
-    if(n.type === INTEGER)
-        return n.num
-    return n.num.toFixed(6);
+    if(n.type === RATIO)
+    {
+        if (n.denom === 1)
+            return ""+n.numer
+        return n.numer + "/" + n.denom;
+    }
+    return n.numer.toFixed(6);
 }
 var formatAtom = function(a)
 {
@@ -1477,15 +1512,15 @@ var _atom_ref = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE!==ATOM)
+    if(arg1.TYPE === NUMBER && arg1.type === RATIO && arg1.denom === 1)
     {
-        error("Function atom-ref: Invalid Parameters Type");
+        return build_atom(arg0.atom[arg1.numer]);
     }
-    if(arg1.TYPE!==INTEGER)
+    else
     {
         error("Function atom-ref: Invalid Parameters Type; Refer index should be integer");
+        return build_atom('undefined');
     }
-    return build_atom(arg0.atom[arg1.num]);
 }
 
 var _dictionary = function(stack_param)
@@ -1539,7 +1574,7 @@ var _eq$ = function(stack_param)
     }
     else if (arg0.TYPE === NUMBER)
     {
-        return arg0.num === arg1.num ? build_true() : build_false();
+        return arg0.numer/arg0.denom === arg1.numer/arg1.denom ? build_true() : build_false();
     }
     else if (arg0.TYPE === ATOM)
     {
@@ -1550,7 +1585,16 @@ var _integer$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === NUMBER && arg0.type === INTEGER){
+    if(arg0.TYPE === NUMBER && arg0.type === RATIO && arg0.denom === 1){
+        return build_true();
+    }
+    return build_false();
+}
+var _ratio$ = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg0 = stack_param[0];
+    if(arg0.TYPE === NUMBER && arg0.type === RATIO){
         return build_true();
     }
     return build_false();
@@ -1572,7 +1616,36 @@ var _null$ = function(stack_param)
         return build_true();
     return build_false();
 }
-
+/*
+    Numeric Calculation
+*/
+// GCD
+var gcd = function(a,b)
+{
+    if (b==0)
+        return a
+    return gcd(b,a%b)
+}
+var numer = function(rat){return rat.numer}
+var denom = function(rat){return rat.denom}
+var make_rat = function(numer, denom)
+{
+    var g = gcd(numer, denom)
+    return build_number(numer/g, denom/g, RATIO);
+}
+// fraction arithematic
+var add_rat = function(x,y){
+   return make_rat( numer(x)*denom(y)+numer(y)*denom(x) , denom(x)*denom(y))
+}
+var sub_rat = function(x,y){
+    return make_rat( numer(x)*denom(y)-numer(y)*denom(x) , denom(x)*denom(y))
+}
+var mul_rat = function(x,y){
+    return make_rat(numer(x)*numer(y), denom(x)*denom(y))
+}
+var div_rat = function (x,y){
+    return make_rat(numer(x)*denom(y),denom(x)*numer(y))
+}
 var _add = function(stack_param)
 {
     checkParam(stack_param, 2);
@@ -1580,12 +1653,11 @@ var _add = function(stack_param)
     var arg1 = stack_param[1];
     if(arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
     {
-        var result = arg0.num + arg1.num
         if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
-            return build_number(result, FLOAT);
+            return build_number(arg0.numer/arg0.denom + arg1.numer/arg1.denom, 1, FLOAT);
         }
-        return build_number(result, INTEGER);
+        return add_rat(arg0, arg1);
     }
     else if (arg0.TYPE === ATOM && arg1.TYPE === ATOM)
     {
@@ -1608,12 +1680,11 @@ var _sub = function(stack_param)
         return build_false();
     }
     else{
-        var result = arg0.num - arg1.num
         if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
-            return build_number(result, FLOAT);
+            return build_number(arg0.numer/arg0.denom - arg1.numer/arg1.denom, 1, FLOAT);
         }
-        return build_number(result, INTEGER);
+        return sub_rat(arg0, arg1);
     }
 }
 var _mul = function(stack_param)
@@ -1627,12 +1698,11 @@ var _mul = function(stack_param)
         return build_false();
     }
     else{
-        var result = arg0.num * arg1.num
         if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
-            return build_number(result, FLOAT);
+            return build_number(arg0.numer/arg0.denom * (arg1.numer/arg1.denom), 1, FLOAT);
         }
-        return build_number(result, INTEGER);
+        return mul_rat(arg0, arg1);
     }
 }
 var _div = function(stack_param)
@@ -1648,12 +1718,9 @@ var _div = function(stack_param)
     else{
         if(arg0.type===FLOAT || arg1.type === FLOAT)
         {
-            return build_number(arg0.num/arg1.num, FLOAT);
+            return build_number(arg0.numer/arg0.denom / (arg1.numer/arg1.denom), 1, FLOAT);
         }
-        var result = arg0.num / arg1.num;
-        if(isInteger(result)) 
-            return build_number(result, INTEGER)
-        return build_number(Math.floor(result), FLOAT);
+        return div_rat(arg0, arg1);
     }
 }
 var _lt = function(stack_param)
@@ -1669,7 +1736,7 @@ var _lt = function(stack_param)
     }
     else if (arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
     {
-        if(arg0.num < arg1.num)
+        if(arg0.numer/arg0.denom < arg1.numer/arg1.denom)
             return build_true();
         return build_false();
     }
@@ -1685,11 +1752,11 @@ var _len = function(stack_param)
     var arg = stack_param[0];
     if(arg.TYPE === ATOM)
     {
-        return build_number(arg.atom.length, INTEGER);
+        return build_number(arg.atom.length, 1, RATIO);
     }
     else if (arg.TYPE === VECTOR)
     {
-        return build_number(arg.vector.length, INTEGER);
+        return build_number(arg.vector.length, 1, RATIO);
     }
     else
     {
@@ -1709,11 +1776,11 @@ var _slice = function(stack_param)
     }
     if(arg0.TYPE === ATOM)
     {
-        return build_atom(arg0.atom.slice(arg1.num, arg2.num));
+        return build_atom(arg0.atom.slice(arg1.numer, arg2.numer));
     }
     else if (arg0.TYPE === VECTOR)
     {
-        return build_vector(arg0.vector.slice(arg1.num, arg2.num));
+        return build_vector(arg0.vector.slice(arg1.numer, arg2.numer));
     }
     else
     {
@@ -1736,18 +1803,47 @@ var _dictionary_keys = function(stack_param)
     }
 }
 
+var _tp_ratio = function(stack_param)
+{
+    checkParam(stack_param, 1);
+    var arg = stack_param[0];
+    if(arg.TYPE === NUMBER)
+    {
+        if(arg.type === RATIO)
+        {
+            return arg;
+        }
+        else
+        {
+            var num = arg.numer;
+            var getNumOfNumberAfterDot = function(num){
+                num = "" + num
+                var i = num.indexOf('.')+1
+                return num.length - i;
+            }
+            var _n = getNumOfNumberAfterDot(num);
+            return make_rat(num * _n, _n);
+        }
+    }
+    else
+    {
+        error("Function ->ratio --- only support number type data");
+        return build_atom('undefined');
+    }
+}
+
 
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
-,'<','len', 'slice', 'dictionary-keys'
+,'<','len', 'slice', 'dictionary-keys','ratio?','->ratio'
 
 ];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
-    _lt, _len, _slice, _dictionary_keys
+    _lt, _len, _slice, _dictionary_keys, _ratio$, _tp_ratio
 ];
 
 /*
@@ -1789,14 +1885,6 @@ var number$ = function(v)
 {
     return v.TYPE === NUMBER ? true : false;
 }
-var integer$ = function(v)
-{
-    return v.TYPE === NUMBER && v.type === INTEGER ? true : false;
-}
-var float$ = function(v)
-{
-    return v.TYPE === NUMBER && v.type === FLOAT ? true : false;
-}
 var list$ = function(v)
 {
     return v.TYPE === LIST ? true : false;
@@ -1829,7 +1917,7 @@ var apply_vector_procedure = function(v, stack_param)
         var arg = stack_param[0];
         if(arg.TYPE===NUMBER)
         {
-            return v.ref(arg.num);
+            return v.ref(arg.numer);
         }  
         /*
         else if (arg.TYPE === ATOM)
@@ -1857,7 +1945,7 @@ var apply_vector_procedure = function(v, stack_param)
         var arg1 = stack_param[1];
         if(arg0.TYPE === NUMBER)
         {
-            v.set(arg0.num, arg1);
+            v.set(arg0.numer, arg1);
             return v;
         }
         else
@@ -1935,9 +2023,9 @@ var VM = function(instructions, environment, acc, pc, stack)
             if(arg2 === 0)    // atom
                 a = build_atom(arg1)
             else if (arg2 === 1)  // integer
-                a = build_number(parseInt(arg1), INTEGER)
+                a = build_number(parseInt(arg1), 1, RATIO)
             else if (arg2 === 2) // float
-                a = build_number(parseFloat(arg1), FLOAT)
+                a = build_number(parseFloat(arg1), 1, FLOAT)
             else if (arg2 === 3) // string
             {
                 if(arg1.length == 2) // empty string
@@ -1948,6 +2036,15 @@ var VM = function(instructions, environment, acc, pc, stack)
             else
                 error("VM constant: Instruction Error");
 
+            return VM(instructions,
+                environment,
+                a,
+                pc+1,
+                stack);
+        }
+        else if (arg0 === RATIO)
+        {
+            var a = build_number(parseInt(arg1), parseInt(arg2), RATIO);
             return VM(instructions,
                 environment,
                 a,
@@ -2140,6 +2237,8 @@ var FormatInst = function(inst)
         output = output + "jmp"
     else if (i===GOTO)
         output = output + "goto"
+    else if (i===RATIO)
+        output = output + "ratio"
     else
         error("Invalid instruction");
     output = output + " " + inst[1] + " " + inst[2];
