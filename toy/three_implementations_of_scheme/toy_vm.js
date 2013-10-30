@@ -711,10 +711,16 @@ var isRatio = function(n)
     if(index_of_slash === -1) return false;
     var numer = n.slice(0, index_of_slash);
     var denom = n.slice(index_of_slash+1);
+    // if(numer.length === 0 || denom.length == 0) return false;
     if(isInteger(numer) && isInteger(denom)) // didn't consider the case denominator is 0
     {
-        return true
+        if(parseInt(denom) === 0)
+        {
+            error("Invalid ratio --- " + n + " with denominator 0");
+        }
+        return true;
     }
+    return false;
 }
 // The Below 2 functions can be used
 // when "n" has been proved to be ratio
@@ -1803,7 +1809,7 @@ var _dictionary_keys = function(stack_param)
     }
 }
 
-var _tp_ratio = function(stack_param)
+var _to_ratio = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg = stack_param[0];
@@ -1821,7 +1827,7 @@ var _tp_ratio = function(stack_param)
                 var i = num.indexOf('.')+1
                 return num.length - i;
             }
-            var _n = getNumOfNumberAfterDot(num);
+            var _n = Math.pow(10, getNumOfNumberAfterDot(num));
             return make_rat(num * _n, _n);
         }
     }
@@ -1836,14 +1842,14 @@ var _tp_ratio = function(stack_param)
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
-'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
+'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', "/", '->str', 'atom-ref'
 ,'<','len', 'slice', 'dictionary-keys','ratio?','->ratio'
 
 ];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
-    _lt, _len, _slice, _dictionary_keys, _ratio$, _tp_ratio
+    _lt, _len, _slice, _dictionary_keys, _ratio$, _to_ratio
 ];
 
 /*
