@@ -1799,8 +1799,14 @@ var _dictionary_keys = function(stack_param)
     checkParam(stack_param, 1);
     var arg = stack_param[0];
     if(arg.TYPE === DICTIONARY)
-    {
-        return build_vector(Object.keys(arg.dict))
+    { 
+        var keys_str_array = Object.keys(arg.dict) // string array
+        var key_to_atom = [];
+        for(var i = 0; i < keys_str_array.length; i++)
+        {
+            key_to_atom.push(build_atom(key_string[i]));
+        }
+        return build_vector(key_to_atom);
     }
     else
     {
