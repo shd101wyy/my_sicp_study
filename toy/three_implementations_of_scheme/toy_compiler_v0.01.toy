@@ -87,7 +87,7 @@
 ;; Toy Language lexer
 ;; Version 0.01
 ;; tokenize input_string to list
-
+;; Lexer Doesnt Work
 (define (lexer input_string)
 	;; find final index of comment
 	(define (find-final-comment-index input_string i)
@@ -97,14 +97,14 @@
 			   (+ i 1))
 			  (else (find-final-comment-index input_string (+ i 1)))
 			))
-	;; find next " index
+	;; find next " index + 1
 	(define (find-final-string-index input_string i)
 		(cond ((eq? (len input_string) i)
 			   (error "Incomplete String"))
 			  ((eq? (atom-ref input_string i) "\\")
 			  	(find-final-string-index input_string (+ i 2)))
 			  ((eq? (atom-ref input_string i) "\"")
-			  	i)
+			  	(+ i 1))
 			))
 	;; find index of space tab ( ) [ ] { } \n ;
 	(define (find-final-number-of-atom-index input_string i)
@@ -181,6 +181,7 @@
 ;; Toy Language Parser 
 ;; parse tokenized input_string list to 
 ;; syntax tree
+;; well parser works
 (define (parser l)
 	;; return (result . rest)
 	(define (parse-list l)
@@ -257,8 +258,14 @@
 
 
 
+;; I may not use parser written by Toy now
 
 
+;; Compiler 
+;; pass list as parameter
+;; here instructions are list as well
+(define (compiler exp env instructions)
+	)
 
 
 

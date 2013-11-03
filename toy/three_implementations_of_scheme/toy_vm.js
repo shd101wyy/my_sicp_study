@@ -251,6 +251,156 @@ var Parser = function(input_array){
     return output
 }
 
+/* tokenize string to list */
+var lexer = function(input_str)
+{
+    var find_final_comment_index = function(input_str, i)
+    {
+        if(i == input_str.length) return i;
+        if(input_str[i]=="\n") return i+1;
+        else return find_final_comment_index(input_str, i + 1);
+    }
+    var find_final_string_index = function(input_str, i)
+    {
+        if(i == input_str.length)
+            console.log("ERROR: Incomplete String");
+        if(input_str[i]=="\\")
+            return find_final_string_index(input_str, i+1);
+        if(input_str[i]=="\"")
+            return i+1;
+    }
+    var find_final_number_of_atom_index = function(input_str, i)
+    {
+        if(i == input_str.length)
+            return i;
+        if(input_str[i]=="(" || input_str[i]==")"
+            || input_str[i]=="[" || input_str[i]=="]"
+            || input_str[i]=="{" || input_str[i]=="}"
+            || input_str[i]==" " || input_str[i]=="\t"
+            || input_str[i]=="\n" || input_str[i]==";")
+            return i;
+        else
+            return find_final_number_of_atom_index(input_str, i+1);
+    }
+    var lexer_iter = function(input_str, i)
+    {
+        if(i==input_str.length)
+            return build_nil(); // finish
+        if(input_str[i]==" " || input_str[i]=="\n" || input_str[i]=="\t") // remove space tab newline
+            return lexer_iter(input_str, i + 1);
+        if(input_str[i]=="(")
+            return cons("(", lexer_iter(input_str, i + 1));
+        if(input_str[i]=="[")
+            return cons("(", cons("vector", lexer_iter(input_str, i + 1)));
+        if(input_str[i]=="{")
+            return cons("(", cons("dictionary", lexer_iter(input_str, i + 1)));
+        if(input_str[i]==")" || input_str[i]=="]" || input_str[i]=="}")
+            return cons(")", lexer_iter(input_str, i + 1));
+        if(input_str[i]=="'" || input_str[i]=="@" || input_str[i]==",")
+            return cons(input_str[i], lexer_iter(input_str, i + 1));
+        if(input_str[i]=='"')
+        {
+            var end = find_final_string_index(input_str, i+1);
+            return cons(cons("(", cons("quote", cons(input_str.slice(i, end) ")")))
+                        lexer_iter(input_str, end))
+        }
+        if(input_str[i]==";")
+            return lexer_iter(input_str, find_final_comment_index(input_str, i+1));
+        // atom or number
+        var end = find_final_number_of_atom_index(input_str, i+1);
+        return cons(input_str.slice(i, end), lexer_iter(input_str, end));
+    }
+    return lexer_iter(input_str, 0);
+}
+/* parse list to list */
+var parser = function(input_list)
+{
+    var cadr = function(l){return car(cdr(l))}
+    var cddr = function(l){return cdr(cdr(l))}
+    var rest = input_str; // keep track of rest
+    var parse_list = function(l)
+    {
+        if(car(l) === ")") // finish
+        {
+            rest = cdr(l);
+            return build_nil();
+        }
+        else if (car(l) === "(") // list
+        {
+            return parse_list(parse_list(cdr(l)), rest);
+        }
+        else if (car(l) === "'")  // quote
+        {
+            var a = parse_quote(l);
+            return cons(car(a), parse_list(cdr(a)));
+        }
+        else if (car(l) === ",")  // unquote
+        {
+            var a = parse_unquote(l);
+            return cons(car(a), parse_list(cdr(a)));
+        }
+        else if (car(l) === "@")  // quasiquote
+        {
+            var a = parse_quasiquote(l);
+            return cons(car(a), parse_list(cdr(a)));
+        }
+        else if (car(l) === ".") // pair
+        {
+            return cons(cadr(l), parse_list(cddr(l)));
+        }
+        else  // symbol or number
+        {
+            return cons(car(l), parse_list(cdr(l)));
+        }
+    }
+    var parse_quote = function(l)
+    {
+        return cons(cons('quote', cadr(l)),
+                    cddr(l));
+    }
+    var parse_unquote = function(l)
+    {
+        return cons(cons('unquote', cadr(l)),
+                    cddr(l));
+    }
+    var parse_quasiquote = function(l)
+    {
+        return cons(cons('quasiquote', cadr(l)),
+                    cddr(l));
+    }
+    // done
+    if(null$(input_list))
+        return build_nil();
+    // list
+    else if (car(l) === "(")
+    {
+        return cons(parse_list(cdr(l)), parser(rest));
+        // var a = parse_list(cdr(l))
+        // return cons(car(a), parser(cdr(a)));
+    }
+    // quote
+    else if (car(l) === "'")
+    {
+        var a = parse_quote(l);
+        return cons(car(a), parser(cdr(a)));
+    }
+    // unquote
+    else if (car(l) === ",")
+     {
+        var a = parse_unquote(l);
+        return cons(car(a), parser(cdr(a)));
+    }
+    // quasiquote
+    else if (car(l) === "@")
+     {
+        var a = parse_quasiquote(l);
+        return cons(car(a), parser(cdr(a)));
+    }
+    // symbol or number
+    else
+        return cons(car(l), parser(cdr(l)))
+}
+
 
 
 /*
@@ -1970,7 +2120,11 @@ var true$ = function(v)
 {
     return v.TYPE === LIST && v.NULL === true? false : true;
 }
-
+var null$ = function(v)
+{
+    return v.TYPE === LIST && v.NULL === true? true : false;
+}
+var false$ = null$;
 /*
     Special Application
 */
