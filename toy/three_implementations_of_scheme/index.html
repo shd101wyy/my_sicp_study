@@ -3,57 +3,50 @@
 		<title>Toy VM Test</title>
 		<meta charset='utf8'>
 		<script type="text/javascript" src="./toy_vm.js"></script>
+		<script type="text/javascript" src="./lib/codemirror.js"></script>
+		<script type="text/javascript" src="./lib/scheme.js"></script>
+		<link rel="stylesheet" type="text/css" href="./lib/codemirror.css">
 		<style type="text/css">
 			body{
 				background-color: #454545;
 				font-family: Helvetica;
 			}
-			#textarea{
-				width: 60%;
-				height: 600px;
-				position: absolute;
-				left: 20%;
-				font-size: 15px;
-				border-width: 0px;
-				background-color: white;
-
-			}
 			#terminal{
 				width: 60%;
-				height: 100px;
+				height: 200px;
 				position: absolute;
 				left: 20%;
-				top: 650px;
+				top: 550px;
 				background-color: white;
 				color: black;
 				overflow: scroll;
 			}
-			/*
+			
 			#run
 			{
-				position: absolute;
-				width: 5%;
-				top: 650px;
-				left: 30%%;
+				width: 100px;
+				margin-left: 30%;
 			}
 			#save
 			{
-				position: absolute;
-				width: 5%;
-				top: 650px;
-				left: 50%%;
+				width: 100px;
+				margin-left: 20px;
 			}
 			#load
 			{
-				position: absolute;
-				width: 5%;
-				top: 650px;
-				left: 70%%;
-			}*/
+				width: 100px;
+				margin-left: 10px;
+			}
+			#on_off_terminal
+			{
+				width: 100px;
+				margin-left: 10px;
+			}
 		</style>
 	</head>
 	<body>
 		<textarea id="textarea">
+			; Toy Language\n; Write your code here ;)
 		</textarea>
 		<button id="run" onclick="run()"> 
 			RUN
@@ -71,6 +64,10 @@
 	</body>
 
 	<script type="text/javascript">
+		// init code mirror
+		var editor = CodeMirror.fromTextArea(document.getElementById('textarea'),
+			{mode: "scheme"});
+
 		var original_console_log = console.log; // save console.log
 	 	var toy_file_system = {};
  
@@ -112,7 +109,8 @@
 		var run = function()
 		{
 			document.getElementById('terminal').innerHTML = ""; // clear terminal
-			var content = document.getElementById('textarea').value;
+			// var content = document.getElementById('textarea').value;
+			var content = editor.getValue();
 			console.log(content);
 			/*
 				lexer and parser test
@@ -150,7 +148,8 @@
 
 		var save = function()
 		{
-			var content = document.getElementById('textarea').value;
+			//var content = document.getElementById('textarea').value;
+			var content = editor.getValue();
 			var save_name = prompt('Save As:');
 			toy_file_system[save_name] = content
 			console.log(JSON.stringify(toy_file_system));
@@ -167,7 +166,8 @@
 			alert("Existed Files: " + existed_files);
 
 			var load_name = prompt('Load ');
-			document.getElementById('textarea').value = toy_file_system[load_name];
+			// document.getElementById('textarea').value = toy_file_system[load_name];
+			editor.setValue(toy_file_system[load_name]);
 		}
 
 

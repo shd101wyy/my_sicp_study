@@ -493,7 +493,7 @@ var expand_clauses = function(clauses)
         // check else
         if(c[0] == 'else')
         {
-            if(i!==clauses.length - 1)
+            if(i!==clauses.length - 1) // else must be the last clause, otherwise it's wrong
             {
                 console.log("ERROR: cond invalid else");
             }
