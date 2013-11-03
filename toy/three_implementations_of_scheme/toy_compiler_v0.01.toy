@@ -11,6 +11,11 @@
 ;; '<'
 ;; ];
 
+;; helper functions
+(define (cddr x) (cdr (cdr x)))
+(define (cadr x) (car (cdr x)))
+
+
 (define true 1)
 (define false '())
 (define (error msg)
@@ -30,6 +35,12 @@
 			count
 			(list-length-iter (cdr l) (+ count 1))))
 	(list-length-iter l 0)))
+;; list append
+(define (append l append-value)
+	(cond ((null? l) append-value)
+		  (else
+		  	(cons (car l)
+		  		  (append (cdr l) append-value)))))
 ;; check symbol
 (define (symbol? x)
 	(atom? x))
@@ -172,33 +183,77 @@
 ;; parse tokenized input_string list to 
 ;; syntax tree
 (define (parser l)
+	;; return (result . rest)
 	(define (parse-list l)
+		(define (parse-list-iter output l)
+			(cond ((null? l) ;; error
+				   (error "Incomplete List"))
+				  ((eq? (car l) ")") ;; end
+				  	(cons output l))
+				  ;; list
+			      ((eq? (car l) "(")
+			      	(define a (parse-list l))
+			      	(parse-list-iter (append output (car a))
+			      					 (cdr a)))
+			   	  ;; quote
+			      ((eq? (car l) "'")
+			      	(defind a (parse-quote l))
+			      	(parse-list-iter (append output (car a))
+			      					 (cdr a)))
+			      ;; unquote
+			      ((eq? (car l) ",")
+			      	(defind a (parse-unquote l))
+			      	(parse-list-iter (append output (car a))
+			      					 (cdr a)))
+			      ;; quasiquote
+			      ((eq? (car l) "@")
+			      	(defind a (parse-quasiquote l))
+			      	(parse-list-iter (append output (car a))
+			      					 (cdr a)))
+			      ;; symbol or number
+			      (else
+			      	(parse-list-iter (append output (car l))
+			      					 (cdr l))
+			      	)			  
+				)
+			)
+		(parse-list-iter '() l)
 		)
 	(define (parse-quote l)
-		)
+		(cons (list "quote" (cadr l))
+			  (cddr l)))
 	(define (parse-unquote l)
-		)
+		(cons (list "unquote" (cadr l))
+			  (cddr l)))
 	(define (parse-quasiquote l)
-		)
+		(cons (list "quasiquote" (cadr l))
+			  (cddr l)))
 	(cond ((null? l)
 		   '())
 		  ;; list
-	      ((eq? (car l) "(") 
-	      	(parse-list l))
+	      ((eq? (car l) "(")
+	      	(define a (parse-list (cdr l)))
+	      	(cons (car a) 
+	      		  (parser (cdr a))))
 	   	  ;; quote
 	      ((eq? (car l) "'")
-	      	(parse-quote l))
+	      	(defind a (parse-quote l))
+	      	(cons (car a)
+	      		  (parser (cdr a))))
 	      ;; unquote
 	      ((eq? (car l) ",")
-	      	(parse-unquote l))
+	      	(defind a (parse-unquote l))
+	      	(cons (car a)
+	      		  (parser (cdr a))))
 	      ;; quasiquote
 	      ((eq? (car l) "@")
-	      	(parse-quasiquote l))
+	      	(defind a (parse-quasiquote l))
+	      	(cons (car a)
+	      		  (parser (cdr a))))
 	      ;; symbol or number
 	      (else
 	      	(cons (car l) 
-	      		  (parser (cdr l))))
-	))
+	      		  (parser (cdr l))))))
 
 
 
