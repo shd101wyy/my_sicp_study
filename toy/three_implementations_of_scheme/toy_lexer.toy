@@ -1,0 +1,100 @@
+;; Toy Language lexer
+;; Version 0.01
+;; tokenize input_string to list
+(define true 1)
+(define false '())
+(define (error msg)
+	(display (+ "ERROR: " msg)))
+(define (not judge)
+	(if judge false true))
+
+(define (lexer input_string)
+	;; find final index of comment
+	(define (find-final-comment-index input_string i)
+		(cond ((eq? (len input_string) i)
+			   i)
+			  ((eq? (atom-ref input_string i) "\n")
+			   (+ i 1))
+			  (else (find-final-comment-index input_string (+ i 1)))
+			))
+	;; find next " index
+	(define (find-final-string-index input_string i)
+		(cond ((eq? (len input_string) i)
+			   (error "Incomplete String"))
+			  ((eq? (atom-ref input_string i) "\\")
+			  	(find-final-string-index input_string (+ i 2)))
+			  ((eq? (atom-ref input_string i) "\"")
+			  	i)
+			))
+	;; find index of space tab ( ) [ ] { } \n ;
+	(define (find-final-number-of-atom-index input_string i)
+		(cond ((eq? (len input_string) i)
+			   i)
+		      ((eq? (atom-ref input_string i) "(")
+		       i)
+		      ((eq? (atom-ref input_string i) ")")
+		       i)
+		      ((eq? (atom-ref input_string i) "[")
+		       i)
+		      ((eq? (atom-ref input_string i) "]")
+		       i)
+		      ((eq? (atom-ref input_string i) "{")
+		       i)
+		      ((eq? (atom-ref input_string i) "}")
+		       i)
+		      ((eq? (atom-ref input_string i) " ")
+		       i)
+		      ((eq? (atom-ref input_string i) "\t")
+		       i)
+		      ((eq? (atom-ref input_string i) "\n")
+		       i)
+		      ((eq? (atom-ref input_string i) ";")
+		       i)
+		      (else
+		      	(find-final-number-of-atom-index input_string (+ i 1)))))
+	(define )
+	(define (lexer-iter input_string i)
+		(cond ((eq? (atom-ref input_string i) " ") ;; space so continue
+			   (lexer-iter input_string (+ i 1)))
+			  ((eq? (atom-ref input_string i) "\t") ;; tab continue
+			  	(lexer-iter input_string (+ i 1)))
+			  ((eq? (atom-ref input_string i) "\n") ;; new line
+			  	(lexer-iter input_string (+ i 1))) 
+			  ((eq? (len input_string) i)
+				'()) ;; finish lexer
+			  ((eq? (atom-ref input_string i) "(")
+			   (cons "(" (lexer-iter input_string (+ i 1)))) ;; find ( as list
+			  ((eq? (atom-ref input_string i) "[") ;; find [ as vector
+			  	(cons "(" (cons "vector" (lexer-iter input_string (+ i 1)))))
+			  ((eq? (atom-ref input_string i) "{") ;; find { as dictionary
+			  	(cons "(" (cons "dictionary" (lexer-iter input_string (+ i 1))))) 
+			  ((eq? (atom-ref input_string i) ")") ;; )
+			   	(cons ")" (lexer-iter input_string (+ i 1))))
+			  ((eq? (atom-ref input_string i) "]") ;; ]
+			  	(cons ")" (lexer-iter input_string (+ i 1))))
+			  ((eq? (atom-ref input_string i) "}") ;; }
+			  	(cons ")" (lexer-iter input_string (+ i 1))))
+			  ;; ' quote
+			  ((eq? (atom-ref input_string i) "'")
+			  	(cons "'" (lexer-iter input_string (+ i 1))))
+			  ;; , unquote
+			  ((eq? (atom-ref input_string i) ",")
+			  	(cons "," (lexer-iter input_string (+ i 1))))
+			  ;; @ quasiquote
+			  ((eq? (atom-ref input_string i) "@")
+			  	(cons "@" (lexer-iter input_string (+ i 1))))
+			  ;; comment 
+			  ((eq? (atom-ref input_string i) ";")
+			  	(lexer-iter input_string (find-final-comment-index input_string i)))
+			  ;; string
+			  ((eq? (atom-ref input_string i) "\"")
+			  	(define end (find-final-string-index input_string (+ i 1)))
+			  	(cons (list "(" "quote" (slice input_string i end)  ")")
+			  		  (lexer-iter input_string end)))
+			  (else ;; number or atom
+			  	(define end (find-final-number-of-atom-index input_string (+ i 1)))
+			  	(cons (slice input_string i end) 
+			  		  (lexer-iter input_string end))
+			  	)
+			  )
+		))

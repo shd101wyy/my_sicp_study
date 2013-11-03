@@ -703,7 +703,11 @@ function isNumber(n) {
 /*
     check whether string is integer
 */
-var isInteger = function(n){ return n==="0" || /^[1-9][0-9]*$/.test(n) }
+var isInteger = function(n)
+{ 
+    if(n.length==0)return false; 
+    if(n[0]=="-") n = n.slice(1);
+    return n==="0" || /^[1-9][0-9]*$/.test(n) }
 var isFloat = function(n){return isNumber(n) && !(isInteger(n))}
 var isRatio = function(n)
 {
