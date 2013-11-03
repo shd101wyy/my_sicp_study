@@ -132,7 +132,6 @@
 		       i)
 		      (else
 		      	(find-final-number-of-atom-index input_string (+ i 1)))))
-	(define )
 	(define (lexer-iter input_string i)
 		(cond ((eq? (atom-ref input_string i) " ") ;; space so continue
 			   (lexer-iter input_string (+ i 1)))

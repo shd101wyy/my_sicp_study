@@ -2099,8 +2099,10 @@ var VM = function(instructions, environment, acc, pc, stack)
             {
                 if(arg1.length == 2) // empty string
                     a = ""
-                else 
-                    a = build_atom(arg1.slice(1, arg1.length -1));
+                else {
+                    //a = build_atom(arg1.slice(1, arg1.length -1));
+                    a = build_atom(eval(arg1));
+                }
             }
             else
                 error("VM constant: Instruction Error");
