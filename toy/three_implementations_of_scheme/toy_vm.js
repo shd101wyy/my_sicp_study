@@ -72,7 +72,7 @@ var Lexer= function(input_str){
         /*
 			Ignore space tab newline
         */
-        if (input_str[i]==' '||input_str[i]=='\t'||input_str[i]=='\n'){
+        if (input_str[i]===" "||input_str[i]==="\t"||input_str[i]==="\n"){
             continue
         }
         // meet array
@@ -474,8 +474,55 @@ var make_begin = function(exp){ // ((define x 12)(set! x 13)) => (begin (define 
     for(var i = 0; i < exp.length; i++){output.push(exp[i])}
     return output;
 }
+/*
+    (cond (false 1)
+          (1 2))
+        ||
+        \/
+    (if false 1
+        (if 1 2))
+
+*/
 var expand_clauses = function(clauses)
-{
+{   
+    var output = ['if'];
+    var p = output; // pointer
+    for(var i = 0; i < clauses.length; i++)
+    {
+        var c = clauses[i];
+        // check else
+        if(c[0] == 'else')
+        {
+            if(i!==clauses.length - 1)
+            {
+                console.log("ERROR: cond invalid else");
+            }
+            else
+            {
+                p.push("1");
+                p.push(make_begin(c.slice(1)));
+                p.push(['quote', []]);
+                break;
+            }
+        }
+        p.push(c[0]); // push predict
+        var begin_ = make_begin(c.slice(1));
+        p.push(begin_); // push consequent
+        // push alternative
+        if(i == clauses.length - 1) // last clause
+        {
+            p.push(['quote', []]);
+        }
+        else
+        {
+            var new_if = ['if'];
+            p.push(new_if);
+            p = new_if
+        }
+    }
+    console.log(output);
+    return output;
+    /*
     var expand_clause_to_if = function(clauses, output, i){
         if(i === clauses.length)
             return output;
@@ -504,7 +551,7 @@ var expand_clauses = function(clauses)
         a.push('quote'); a.push([]);
     }
     console.log(output);
-    return output;
+    return output;*/
 }
 /*
     compile lambda

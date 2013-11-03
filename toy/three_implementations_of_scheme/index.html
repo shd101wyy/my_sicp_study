@@ -53,8 +53,8 @@
 		</style>
 	</head>
 	<body>
-		<div id="textarea" contenteditable="true">
-		</div>
+		<textarea id="textarea">
+		</textarea>
 		<button id="run" onclick="run()"> 
 			RUN
 		</button>
@@ -103,10 +103,16 @@
 	 			window.localStorage['toy'] = "{}";
 	 		}
 	 	}
+	 	/*
+			ATTENTION:
+
+				CANNOT use DIV, Must Use TEXTAREA
+				Or lexer will cause error
+	 	*/
 		var run = function()
 		{
 			document.getElementById('terminal').innerHTML = ""; // clear terminal
-			var content = document.getElementById('textarea').innerText;
+			var content = document.getElementById('textarea').value;
 			console.log(content);
 			/*
 				lexer and parser test

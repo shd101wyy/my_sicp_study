@@ -1,0 +1,7 @@
+(define (append l append-value)
+	(cond ((null? l) append-value)
+		  (else
+		  	(cons (car l)
+		  		  (append (cdr l) append-value)))))
+
+(display (append '(1 2) 3))
