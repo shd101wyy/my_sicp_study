@@ -1,12 +1,81 @@
-;; Toy Language lexer
-;; Version 0.01
-;; tokenize input_string to list
+
+;; Toy Language Compiler
+;; for bootstrap
+;; Available procedures
+;; =================================
+;; Summary
+;; Builtin Procedures
+;; var primitive_symbol_table_list = [
+;; 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
+;; 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', '/', '->str', 'atom-ref'
+;; '<'
+;; ];
+
 (define true 1)
 (define false '())
 (define (error msg)
 	(display (+ "ERROR: " msg)))
 (define (not judge)
 	(if judge false true))
+
+;; list-ref
+(define (list-ref l i)
+	(if (eq? i 0)
+		(car l)
+		(list-ref (cdr l) (- i 1))))
+;; define procedure that gets list length
+(define list-length (lambda (l)
+	(define (list-length-iter l count)
+		(if (null? l) 
+			count
+			(list-length-iter (cdr l) (+ count 1))))
+	(list-length-iter l 0)))
+;; check symbol
+(define (symbol? x)
+	(atom? x))
+;; check list
+(define (list? x)
+	(pair? x))
+;; check empty
+(define (empty? x)
+	(null? x))
+
+;; vector->list
+(define (vector->list v)
+	(define (vector->list-iter v i)
+		(if (eq? i (len v))
+			'()
+			(cons (v i) (vector->list-iter v (+ i 1)))))
+	(vector->list-iter v 0))
+
+;; list->vector
+(define (list->vector l)
+	(define (list->vector-iter l output i)
+		(if (null? l)
+			output
+			(begin
+				(output i (car l))
+				(list->vector-iter (cdr l) output (+ i 1))
+				)))
+	(list->vector-iter l [] 0))
+
+;; list slice
+(define (list-slice l index1 index2)
+	(define (list-slice-remove-ahead i l) ;; remove head
+		(if (eq? i index1)
+			l
+			(list-slice-remove-ahead (+ i 1) (cdr l))))
+	(define (list-slice-iter l count reach-count)
+		(if (eq? count reach-count)
+			'()
+			(cons (car l) (list-slice-iter (cdr l) (+ count 1) reach-count))))
+	(list-slice-iter (list-slice-remove-ahead 0 l)
+					 0
+					 (- index2 index1)))
+
+;; Toy Language lexer
+;; Version 0.01
+;; tokenize input_string to list
 
 (define (lexer input_string)
 	;; find final index of comment
@@ -98,3 +167,68 @@
 			  	)
 			  )
 		))
+
+;; Toy Language Parser 
+;; parse tokenized input_string list to 
+;; syntax tree
+(define (parser l)
+	(define (parse-list l)
+		)
+	(define (parse-quote l)
+		)
+	(define (parse-unquote l)
+		)
+	(define (parse-quasiquote l)
+		)
+	(cond ((null? l)
+		   '())
+		  ;; list
+	      ((eq? (car l) "(") 
+	      	(parse-list l))
+	   	  ;; quote
+	      ((eq? (car l) "'")
+	      	(parse-quote l))
+	      ;; unquote
+	      ((eq? (car l) ",")
+	      	(parse-unquote l))
+	      ;; quasiquote
+	      ((eq? (car l) "@")
+	      	(parse-quasiquote l))
+	      ;; symbol or number
+	      (else
+	      	(cons (car l) 
+	      		  (parser (cdr l))))
+	))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

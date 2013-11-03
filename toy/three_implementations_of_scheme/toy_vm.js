@@ -1847,19 +1847,25 @@ var _to_ratio = function(stack_param)
         return build_atom('undefined');
     }
 }
-
+/* return 0-1 random */
+var _random = function(stack_param)
+{
+    checkParam(0);
+    var a = Math.random();
+    return build_number(a, 1, FLOAT);
+}
 
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', "/", '->str', 'atom-ref'
-,'<','len', 'slice', 'dictionary-keys','ratio?','->ratio'
+,'<','len', 'slice', 'dictionary-keys','ratio?','->ratio', 'random'
 
 ];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
-    _lt, _len, _slice, _dictionary_keys, _ratio$, _to_ratio
+    _lt, _len, _slice, _dictionary_keys, _ratio$, _to_ratio, _random
 ];
 
 /*
