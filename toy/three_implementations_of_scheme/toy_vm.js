@@ -1096,11 +1096,13 @@ var cdr = function(obj)
 {
     return obj['cdr'];
 }
+var caar = function(obj){return car(car(obj))}
 var cadr = function(obj){return car(cdr(obj))}
 var cddr = function(obj){return cdr(cdr(obj))}
 var cdddr = function(obj){return cdr(cdr(cdr(obj)))}
 var caddr = function(obj){return car(cdr(cdr(obj)))}
 var cadddr = function(obj){return car(cdr(cdr(cdr(obj))))}
+var cadar = function(obj){return car(cdr(car(obj)))}
 var set_car = function(x, value)
 {
     x.set_car(value);
@@ -3264,6 +3266,61 @@ var compile_quasiquote_list = function(exp, env, instructions)
     }
     return compile_list_iter(exp, env, instructions);
 }
+/*
+    compile let statements
+
+    (let ((x 0) (y 1))
+         (+ x y))
+    frame
+*/
+var let_var_names = function(vars)
+{
+    if(null$(vars))
+        return build_nil();
+    else
+        return cons(caar(vars), let_var_names(cdr(vars)));
+}
+var let_var_values = function(vars)
+{
+    if(null$(vars))
+        return build_nil();
+    else
+        return cons(cadar(vars), let_var_values(cdr(vars)));
+}
+var compile_let = function(exp, env, instructions)
+{
+    // create new frame
+    instructions_push(instructions, make_inst(FRAME, 0, 0));
+    var var_name_list = let_var_names(cadr(exp)); // get (x y)
+    var var_value_list = let_var_values(cadr(exp)); // (get 0 1)
+
+    var new_frame = make_frame();
+    while(!null$(var_name_list))
+    {
+        var var_name = car(var_name_list);
+        var var_value = car(var_value_list);
+
+        compiler(var_value, env, instructions); // compile var value
+        new_frame.push(var_name.atom); // push var name
+
+        // add argument value to frame
+        instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+
+        // reset pointer
+        var_name_list = cdr(var_name_list);
+        var_value_list = cdr(var_value_list);
+    }   
+
+    var body = cddr(exp); // get running body
+
+    var new_env = symbol_table_copy(env);   // copy env
+    symbol_table_push(new_env, new_frame);  // add new frame to new symbol table
+    compile_sequence(body, new_env, instructions); // compile body
+
+    // return
+    instructions_push(instructions, make_inst(RETURN, 0, 0));
+
+}
 
 /* 
     new compile sequence
@@ -3349,6 +3406,10 @@ var compiler = function(exp, env, instructions)
                             symbol_table_copy(env),
                             instructions);
             }
+            else if (tag.atom === "let")
+            {
+                return compile_let(exp, env, instructions);
+            }
             else // application
             {
                 return compile_application(application_head(exp),
@@ -3383,7 +3444,7 @@ var compiler = function(exp, env, instructions)
     }
 }
 
-var x = "(cond (1 2) (2 3))";
+var x = "(let ((a 12) (b 13)) a) x";
 var y = lexer(x);
 console.log(x);
 console.log(y);
