@@ -1098,7 +1098,9 @@ var cdr = function(obj)
 }
 var cadr = function(obj){return car(cdr(obj))}
 var cddr = function(obj){return cdr(cdr(obj))}
-
+var cdddr = function(obj){return cdr(cdr(cdr(obj)))}
+var caddr = function(obj){return car(cdr(cdr(obj)))}
+var cadddr = function(obj){return car(cdr(cdr(cdr(obj))))}
 var set_car = function(x, value)
 {
     x.set_car(value);
@@ -2755,7 +2757,7 @@ var Symbol_Table = function()
     }
     this.lookup = function(var_name) /* lookup var name */
     {
-        for(var i = 0; i < this.length; i++)
+        for(var i = this.length - 1; i >=0; i--)
         {
             var a = frame_lookup(this.frames[i], var_name);
             if(a != -1)
@@ -2808,6 +2810,10 @@ var symbol_table_ref = function(st, i)
 {
     return st.ref(i);
 }
+var symbol_table_top = function(st)
+{
+    return st.frames[st.length - 1];
+}
 /* =========================
     Begin to write compiler
    =========================
@@ -2831,8 +2837,8 @@ var compile_lookup = function(var_name, env, instructions)
     {
         // add var inside env
         // that var is free variable
-        frame_push(symbol_table_ref(env, symbol_table_length(env)), var_name);
-        instructions_push(instructions, make_inst(REFER, env.length-1, env[env.length-1].length-1));
+        frame_push(symbol_table_ref(env, symbol_table_length(env) - 1), var_name);
+        instructions_push(instructions, make_inst(REFER, symbol_table_length(env)-1, frame_length(symbol_table_top(env))-1));
         return;
     } // find var
     else{
@@ -2841,6 +2847,315 @@ var compile_lookup = function(var_name, env, instructions)
     }
 }
 
+/*
+    compile definition
+    (define x 12)
+*/  
+var definition_variable = function(exp)
+{
+    var var_name_obj = cadr(exp);
+    if(var_name_obj.TYPE !== ATOM)
+    {
+        error("Invalid var name");
+    }
+    return var_name_obj.atom;
+}
+var definition_value = function(exp)
+{
+    return caddr(exp);
+}
+
+var compile_define = function(var_name, var_value, env, instructions)
+{
+    var var_name_index = frame_lookup(symbol_table_top(env), var_name);
+    if(var_name_index == -1) // didn't find var
+    {
+        // add var to env
+        frame_push(symbol_table_top(env), var_name);
+        // compile var_value
+        compiler(var_value, env, instructions);
+        // assign value
+        instructions_push(instructions, make_inst(ASSIGN, symbol_table_length(env) - 1, frame_length(symbol_table_top(env)) - 1 ));
+    }
+    else // find var
+    {
+        // compile var_value
+        compiler(var_value, env, instructions);
+        // assign value
+        instructions_push(instructions, make_inst(ASSIGN, symbol_table_length(env) - 1, var_name_index));
+    }
+}
+
+/*
+    compile assignment
+    (set! x 12)
+*/
+var assignment_variable = function(exp)
+{
+    var var_name_obj = cadr(exp);
+    if(var_name_obj.TYPE !== ATOM)
+    {
+        error("Invalid var name");
+    }
+    return var_name_obj.atom;
+}
+var assignment_value = function(exp)
+{
+    return caddr(exp);
+}
+
+var compile_set = function(var_name, var_value, env, instructions)
+{
+    // compile var_value
+    compiler(var_value, env, instructions);
+    var n_m = symbol_table_lookup(env, var_name);
+    if(n_m[0] === -1)
+    {
+        console.log("ERROR: cannot find var " + var_name);
+        return;
+    }
+    else
+    {
+        instructions_push(instructions, make_inst(ASSIGN, n_m[0], n_m[1]));
+        return;
+    }
+}
+
+/*
+    compile if
+    (if 1 2 3)
+    ;; const 1
+    ;; test 3
+    ;; const 2
+    ;; jmp 2
+    ;; const 3
+    ;;
+*/
+var if_test = function(exp)
+{
+    return cadr(exp);
+}
+var if_consequent = function(exp)
+{
+    return caddr(exp);
+}
+var if_alternative = function(exp)
+{
+    var v = cdddr(exp);
+    // (if 1 2)
+    if(null$(v))
+        return cons(build_atom('quote'), build_atom('undefined')) // return undefined
+    return car(v);
+}
+
+var compile_if = function(test, consequent, alternative, env, instructions)
+{
+    // compile test
+    compiler(test, env, instructions);
+    var index1 = instructions_length(instructions) ; // save current index
+    instructions_push(instructions, make_inst(TEST, 0, 0)) // add test inst
+    compiler(consequent, env, instructions); // compile consequent
+    // change test 2nd argument
+    instructions_ref(instructions, index1)[1] = instructions.length - index1 + 1;
+    var index_of_jmp = instructions_length(instructions);
+    // add jmp
+    instructions_push(instructions, make_inst(JMP, 0, 0));
+    var index3 = instructions_length(instructions) ;
+    compiler(alternative, env, instructions); // compile alternative
+    // change jmp 2nd argument    
+    instructions_ref(instructions, index_of_jmp)[1] = instructions.length - index3 + 1;
+}
+
+/*
+    (cond ((judge1) (body1))
+          ((judge2) (body2))
+          ...
+          (else bodyn)
+        )
+        (define (cond-clauses exp) (cdr exp))
+
+(define (cond-else-clause? clause)
+  (eq? (cond-predicate clause) 'else))
+
+(define (cond-predicate clause) (car clause))
+
+(define (cond-actions clause) (cdr clause))
+
+(define (cond->if exp)
+  (expand-clauses (cond-clauses exp)))
+
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false                          ; no else clause
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (if (cond-else-clause? first)
+            (if (null? rest)
+                (sequence->exp (cond-actions first))
+                (error "ELSE clause isn't last -- COND->IF"
+                       clauses))
+            (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
+                     (expand-clauses rest))))))
+*/
+var cond_clauses = function(exp){return cdr(exp);}
+var cond_else_clause$ = function(clause)
+{
+    return eq$(car(clause), build_atom("else"))
+}
+var cond_predicate = function(clause)
+{
+    return car(clause);
+}
+var cond_actions = function(clause)
+{
+    return cdr(clause);
+}
+var cond_to_if = function(exp)
+{
+    return expand_clauses(cond_clauses(exp));
+}
+var sequence_to_exp = function(exps)
+{
+    return cons(build_atom('begin'), exps);
+}
+var make_if = function(test, consequent, alternative)
+{
+    return cons(build_atom('if'),
+           cons(test,
+           cons(consequent,
+                alternative)));
+}
+var expand_clauses = function(clauses)
+{
+    if(null$(clauses))
+    {
+        return build_nil();
+    }
+    else
+    {
+        var first = car(clauses);
+        var rest = cdr(clauses);
+        if(cond_else_clause$(first))
+        {
+            if(null$(rest))
+            {
+                return sequence_to_exp(cond_actions(first));
+            }
+            else
+            {
+                error("ELSE clause isn't last -- COND->IF");
+                return build_nil();
+            }
+        }
+        else
+        {
+            return make_if(cond_predicate(first),
+                    sequence_to_exp(cond_actions(first)),
+                    expand_clauses(rest))
+        }
+    }
+}
+
+/*
+    compile lambda
+    (lambda (a b) (+ a b))
+*/
+var lambda_arguments = function(exp)
+{
+    return cadr(exp);
+}
+var lambda_body  = function(exp)
+{
+    return cddr(exp);
+}
+var extends_symbol_table = function(env, args)
+{
+    var new_env = symbol_table_copy(env); // copy symbol table
+    var new_frame = make_frame(); // make new frame
+    while(!null$(args)) // copy variables to frame
+    {
+        frame_push(new_frame, car(args));
+        args = cdr(args);
+    }
+    symbol_table_push(new_env, new_frame);
+    return new_env;
+}
+// the env here is a copy of env
+var compile_lambda = function(args, body, env, instructions)
+{
+    // save current index, which is the index of (close arg1)
+    var index = instructions_length(instructions);
+    // add close
+    instructions_push(instructions, make_inst(CLOSE, 0, 0));
+    // extend symbol_table
+    var new_env = extends_symbol_table(env, args);
+    // compile body
+    compile_sequence(body, new_env, instructions);
+    // add return
+    instructions_push(instructions, make_inst(RETURN, 0, 0));
+    // set close 2nd arg to index of return
+    instructions_ref(instructions, index)[1]= instructions.length - 1; 
+}
+/*
+    (define (add a b) (+ a b))
+    =>
+    (define add (lambda (a b) (+ a b)))
+*/
+var make_lambda = function(exp)
+{
+    var tag = car(exp);                 // define or set!
+    var var_name = car(car(cdr(exp)));  // add
+    var args = cdr(car(cdr(exp)));      // (a b)
+    var body = cdr(cdr(exp));           // ((+ a b))
+
+    var lambda_body = cons(build_atom('lambda'), cons(args, body))
+    return cons(tag, cons(var_name, lambda_body))
+}
+
+/*
+    compile application
+*/
+var application_head = function(exp)
+{
+    return car(exp);
+}
+var application_args = function(exp)
+{
+    return cdr(exp);
+}
+/*
+;; compile args
+;; (add 3 4) => (3 4)
+;; const 3 
+;; argument
+;; const 4 
+;; argument
+*/
+
+var compile_args = function(args, env, instructions)
+{   
+    if(null$(args))
+        return;
+    else
+    {
+        var arg = car(args);
+        compiler(arg, env, instructions);
+        instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+        return compile_args(cdr(args), env, instructions);
+    }
+}
+var compile_application = function(applic, args, env, instructions)
+{
+    // add new frame
+    instructions.push([FRAME, 0, 0]);
+    // compile arguments
+    compile_args(args, env, instructions);
+    // compile applic
+    compiler(applic, env, instructions);
+    // call funciton
+    instructions_push(instructions, make_inst(CALL, 0, 0));
+}
 /* 
     new compile sequence
     this time parameter is list
@@ -2886,7 +3201,7 @@ var compiler = function(exp, env, instructions)
             }
             else if (tag.atom === "define")
             {
-                if(pair$(cadr(exp)))
+                if(cadr(exp).TYPE === LIST)
                     return compiler(make_lambda(exp), env, instructions);
                 return compile_define(definition_variable(exp),
                            definition_value(exp),
@@ -2895,7 +3210,7 @@ var compiler = function(exp, env, instructions)
             }   
             else if (tag.atom === "set!")
             {
-                if(pair$(cadr(exp)))
+                if(cadr(exp).TYPE === LIST)
                     return compiler(make_lambda(exp), env, instructions);
                 return compile_set(assignment_variable(exp),
                         assignment_value(exp),
@@ -2933,12 +3248,16 @@ var compiler = function(exp, env, instructions)
                                 instructions)
             }
         }
-        else // application
+        else if(tag.TYPE === LIST) // application
         {
             return compile_application(application_head(exp),
                                 application_args(exp),
                                 env,
                                 instructions)
+        }
+        else
+        {
+            error("Invalid tag");
         }
     }
     else // number
@@ -2955,7 +3274,7 @@ var compiler = function(exp, env, instructions)
     }
 }
 
-var x = "()"
+var x = "(if 1 2 3)"
 var y = lexer(x);
 console.log(x);
 console.log(y);
@@ -2965,6 +3284,8 @@ console.log(formatList(z))
 
 var symbol_table = make_symbol_table();
 var global_frame = make_frame();
+frame_push(global_frame, "x");
+frame_push(global_frame, "y");
 symbol_table_push(symbol_table, global_frame);
 
 var instructions = make_instructions();
