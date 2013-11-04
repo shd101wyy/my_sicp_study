@@ -1995,7 +1995,7 @@ var eq$ = function(arg0, arg1)
 {
     if(arg0.TYPE !== arg1.TYPE)
     {
-        error("Function eq?: invalid parameters type")
+        // error("Function eq?: invalid parameters type")
         return false;
     }
     if(arg0.NULL && arg1.NULL) // empty list comparison
@@ -3024,13 +3024,13 @@ var make_if = function(test, consequent, alternative)
     return cons(build_atom('if'),
            cons(test,
            cons(consequent,
-                alternative)));
+           cons(alternative, build_nil()))));
 }
 var expand_clauses = function(clauses)
 {
     if(null$(clauses))
     {
-        return build_nil();
+        return cons(build_atom('quote'), cons(build_nil(), build_nil()));
     }
     else
     {
@@ -3383,7 +3383,7 @@ var compiler = function(exp, env, instructions)
     }
 }
 
-var x = "(define add (lambda (a b) b))"
+var x = "(cond (1 2) (2 3))";
 var y = lexer(x);
 console.log(x);
 console.log(y);
@@ -3404,9 +3404,9 @@ var i = compile_sequence(z, symbol_table, instructions);
 instructions_display(i)
 
 
-
 var VM = function(instructions, environment, acc, pc, stack)
 {
+
     if(instructions_length(instructions) === pc) // end of program
     {
         console.log("End...");
