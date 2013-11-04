@@ -286,65 +286,68 @@ var lexer = function(input_str)
     {
         if(i==input_str.length)
             return build_nil(); // finish
-        if(input_str[i]==" " || input_str[i]=="\n" || input_str[i]=="\t") // remove space tab newline
+        else if(input_str[i]===" " || input_str[i]=="\n" || input_str[i]=="\t") // remove space tab newline
             return lexer_iter(input_str, i + 1);
-        if(input_str[i]=="(")
-            return cons("(", lexer_iter(input_str, i + 1));
-        if(input_str[i]=="[")
-            return cons("(", cons("vector", lexer_iter(input_str, i + 1)));
-        if(input_str[i]=="{")
-            return cons("(", cons("dictionary", lexer_iter(input_str, i + 1)));
-        if(input_str[i]==")" || input_str[i]=="]" || input_str[i]=="}")
-            return cons(")", lexer_iter(input_str, i + 1));
-        if(input_str[i]=="'" || input_str[i]=="@" || input_str[i]==",")
-            return cons(input_str[i], lexer_iter(input_str, i + 1));
-        if(input_str[i]=='"')
+        else if(input_str[i]==="(")
+            return cons( build_atom("("), lexer_iter(input_str, i + 1));
+        else if(input_str[i]==="[")
+            return cons( build_atom("("), cons( build_atom("vector"), lexer_iter(input_str, i + 1)));
+        else if(input_str[i]==="{")
+            return cons( build_atom("("), cons( build_atom("dictionary"), lexer_iter(input_str, i + 1)));
+        else if(input_str[i]===")" || input_str[i]=="]" || input_str[i]=="}")
+            return cons( build_atom(")"), lexer_iter(input_str, i + 1));
+        else if(input_str[i]==="'" || input_str[i]=="@" || input_str[i]==",")
+            return cons( build_atom(input_str[i]), lexer_iter(input_str, i + 1));
+        else if(input_str[i]==='"')
         {
             var end = find_final_string_index(input_str, i+1);
-            return cons(cons("(", cons("quote", cons(input_str.slice(i, end) ")")))
+            return cons(cons( build_atom("("), cons( build_atom("quote"), cons( build_atom( input_str.slice(i, end)), build_atom(")")))), 
                         lexer_iter(input_str, end))
         }
-        if(input_str[i]==";")
+        else if(input_str[i]===";")
             return lexer_iter(input_str, find_final_comment_index(input_str, i+1));
-        // atom or number
-        var end = find_final_number_of_atom_index(input_str, i+1);
-        return cons(input_str.slice(i, end), lexer_iter(input_str, end));
+        else
+        {
+            // atom or number
+            var end = find_final_number_of_atom_index(input_str, i+1);
+            return cons(build_atom( input_str.slice(i, end) ), lexer_iter(input_str, end));
+        }
     }
     return lexer_iter(input_str, 0);
 }
 /* parse list to list */
-var parser = function(input_list)
+var parser = function(l)
 {
     var cadr = function(l){return car(cdr(l))}
     var cddr = function(l){return cdr(cdr(l))}
-    var rest = input_str; // keep track of rest
+    var rest = l; // keep track of rest
     var parse_list = function(l)
     {
-        if(car(l) === ")") // finish
+        if(car(l).atom === ")") // finish
         {
             rest = cdr(l);
             return build_nil();
         }
-        else if (car(l) === "(") // list
+        else if (car(l).atom === "(") // list
         {
             return parse_list(parse_list(cdr(l)), rest);
         }
-        else if (car(l) === "'")  // quote
+        else if (car(l).atom === "'")  // quote
         {
             var a = parse_quote(l);
             return cons(car(a), parse_list(cdr(a)));
         }
-        else if (car(l) === ",")  // unquote
+        else if (car(l).atom === ",")  // unquote
         {
             var a = parse_unquote(l);
             return cons(car(a), parse_list(cdr(a)));
         }
-        else if (car(l) === "@")  // quasiquote
+        else if (car(l).atom === "@")  // quasiquote
         {
             var a = parse_quasiquote(l);
             return cons(car(a), parse_list(cdr(a)));
         }
-        else if (car(l) === ".") // pair
+        else if (car(l).atom === ".") // pair
         {
             return cons(cadr(l), parse_list(cddr(l)));
         }
@@ -369,29 +372,29 @@ var parser = function(input_list)
                     cddr(l));
     }
     // done
-    if(null$(input_list))
+    if(null$(l))
         return build_nil();
     // list
-    else if (car(l) === "(")
+    else if (car(l).atom === "(")
     {
         return cons(parse_list(cdr(l)), parser(rest));
         // var a = parse_list(cdr(l))
         // return cons(car(a), parser(cdr(a)));
     }
     // quote
-    else if (car(l) === "'")
+    else if (car(l).atom === "'")
     {
         var a = parse_quote(l);
         return cons(car(a), parser(cdr(a)));
     }
     // unquote
-    else if (car(l) === ",")
+    else if (car(l).atom === ",")
      {
         var a = parse_unquote(l);
         return cons(car(a), parser(cdr(a)));
     }
     // quasiquote
-    else if (car(l) === "@")
+    else if (car(l).atom === "@")
      {
         var a = parse_quasiquote(l);
         return cons(car(a), parser(cdr(a)));
@@ -2124,6 +2127,34 @@ var null$ = function(v)
 {
     return v.TYPE === LIST && v.NULL === true? true : false;
 }
+var eq$ = function(arg0, arg1)
+{
+    if(arg0.TYPE !== arg1.TYPE)
+    {
+        error("Function eq?: invalid parameters type")
+        return false;
+    }
+    if(arg0.NULL && arg1.NULL) // empty list comparison
+    {
+        return true;
+    }
+    if(arg0.TYPE === LIST ||
+        arg0.TYPE === VECTOR ||
+        arg0.TYPE === DICTIONARY ||
+        arg0.TYPE === CLOSURE ||
+        arg0.TYPE === BUILTIN_PROCEDURE)
+    {
+        return arg0 === arg1 ? true : false;
+    }
+    else if (arg0.TYPE === NUMBER)
+    {
+        return arg0.numer/arg0.denom === arg1.numer/arg1.denom ? true : false;
+    }
+    else if (arg0.TYPE === ATOM)
+    {
+        return arg0.atom === arg1.atom ? true : false;
+    }
+}
 var false$ = null$;
 /*
     Special Application
@@ -2521,7 +2552,13 @@ var o = VM(i, env, build_atom('done'), 0, []);
 console.log(env)
 */
 
+var x = "(define x 12) (define y 15)";
+var y = lexer(x);
+console.log(y);
+console.log(formatList(y));
 
+var l = parser(y)
+console.log(formatList(l));
 
 
 
