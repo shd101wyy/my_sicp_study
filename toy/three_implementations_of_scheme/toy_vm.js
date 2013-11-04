@@ -1034,10 +1034,9 @@ var Number = function(numer, denom, type)
 {
     this.numer = numer;
     this.denom = denom;
-    this.type = type;
 
     this.NULL = false;  // for virtual machine check
-    this.TYPE = NUMBER; // for virtual machien check
+    this.TYPE = type; // for virtual machien check
 }
 var build_number = function(numer, denom, type)
 {
@@ -1350,7 +1349,7 @@ var _number$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var v = stack_param[0];
-    return v.TYPE === NUMBER ? build_true() : build_false();
+    return number$(v) ? build_true() : build_false();
 }
 var _pair$ = function(stack_param)
 {
@@ -1378,7 +1377,7 @@ var _builtin_procedure$ = function(stack_param)
 */
 var formatNumber = function(n)
 {
-    if(n.type === RATIO)
+    if(n.TYPE === RATIO)
     {
         if (n.denom === 1)
             return ""+n.numer
@@ -1411,7 +1410,7 @@ var formatList = function(l) // format list object to javascript string
             {
                 var c = l;
                 output = output + ". ";
-                if(c.TYPE === NUMBER)
+                if(number$(c))
                     output = output + formatNumber(c) + ")";
                 else if (c.TYPE === ATOM)
                     output = output + formatAtom(c) + ")";
@@ -1428,7 +1427,7 @@ var formatList = function(l) // format list object to javascript string
                 break;
             }
             var c = l.car;
-            if(c.TYPE === NUMBER)
+            if(number$(c))
                 output = output + formatNumber(c) + " ";
             else if (c.TYPE === ATOM)
                 output = output + formatAtom(c) + " ";
@@ -1454,7 +1453,7 @@ var formatVector = function(v)
     for(var i = 0; i < p.length; i++)
     {
         var c = p[i];
-        if(c.TYPE === NUMBER)
+        if(number$(c))
             output = output + formatNumber(c) + " ";
         else if (c.TYPE === ATOM)
             output = output + formatAtom(c) + " ";
@@ -1480,7 +1479,7 @@ var formatDictionary = function(d)
     {
         output = output + key + " "
         var c = p[key];
-        if(c.TYPE === NUMBER)
+        if(number$(c))
             output = output + formatNumber(c) + ", ";
         else if (c.TYPE === ATOM)
             output = output + formatAtom(c) + ", ";
@@ -1502,7 +1501,7 @@ var _display = function(stack_param)
 {
     checkParam(stack_param, 1);
     var v = stack_param[0];
-    if(v.TYPE === NUMBER)
+    if(number$(v))
     {
         console.log(formatNumber(v));
         return build_atom('undefined')
@@ -1548,7 +1547,7 @@ var _str = function(stack_param)
     // change obj to atom
     checkParam(stack_param, 1);
     var v = stack_param[0];
-    if(v.TYPE === NUMBER)
+    if(number$(v))
         return build_atom(formatNumber(v));
     else if (v.TYPE === ATOM)
         return build_atom(formatAtom(v));
@@ -1573,7 +1572,7 @@ var _atom_ref = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg1.TYPE === NUMBER && arg1.type === RATIO && arg1.denom === 1)
+    if(arg1.TYPE === RATIO && arg1.denom === 1)
     {
         return build_atom(arg0.atom[arg1.numer]);
     }
@@ -1632,7 +1631,7 @@ var _eq$ = function(stack_param)
     {
         return arg0 === arg1 ? build_true() : build_false();
     }
-    else if (arg0.TYPE === NUMBER)
+    else if (number$(arg0))
     {
         return arg0.numer/arg0.denom === arg1.numer/arg1.denom ? build_true() : build_false();
     }
@@ -1645,7 +1644,7 @@ var _integer$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === NUMBER && arg0.type === RATIO && arg0.denom === 1){
+    if(arg0.TYPE === RATIO && arg0.denom === 1){
         return build_true();
     }
     return build_false();
@@ -1654,7 +1653,7 @@ var _ratio$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === NUMBER && arg0.type === RATIO){
+    if(arg0.TYPE === RATIO){
         return build_true();
     }
     return build_false();
@@ -1663,7 +1662,7 @@ var _float$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === NUMBER && arg0.type === FLOAT)
+    if(arg0.TYPE === FLOAT)
         return build_true();
     return build_false();
 }
@@ -1711,9 +1710,9 @@ var _add = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
+    if(number$(arg0) && number$(arg1))
     {
-        if(arg0.type===FLOAT || arg1.type === FLOAT)
+        if(arg0.TYPE===FLOAT || arg1.TYPE === FLOAT)
         {
             return build_number(arg0.numer/arg0.denom + arg1.numer/arg1.denom, 1, FLOAT);
         }
@@ -1734,13 +1733,13 @@ var _sub = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    if(!number$(arg0) || !number$(arg1))
     {
         error("Function - only supports numbers now");
         return build_false();
     }
     else{
-        if(arg0.type===FLOAT || arg1.type === FLOAT)
+        if(arg0.TYPE===FLOAT || arg1.TYPE === FLOAT)
         {
             return build_number(arg0.numer/arg0.denom - arg1.numer/arg1.denom, 1, FLOAT);
         }
@@ -1752,13 +1751,13 @@ var _mul = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    if(!number$(arg0) || !number$(arg1))
     {
         error("Function * only supports numbers now");
         return build_false();
     }
     else{
-        if(arg0.type===FLOAT || arg1.type === FLOAT)
+        if(arg0.TYPE===FLOAT || arg1.TYPE === FLOAT)
         {
             return build_number(arg0.numer/arg0.denom * (arg1.numer/arg1.denom), 1, FLOAT);
         }
@@ -1770,13 +1769,13 @@ var _div = function(stack_param)
     checkParam(stack_param, 2);
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
-    if(arg0.TYPE!==NUMBER || arg1.TYPE!==NUMBER)
+    if(!number$(arg0) || !number$(arg1))
     {
         error("Function / only supports numbers now");
         return build_false();
     }
     else{
-        if(arg0.type===FLOAT || arg1.type === FLOAT)
+        if(arg0.TYPE===FLOAT || arg1.TYPE === FLOAT)
         {
             return build_number(arg0.numer/arg0.denom / (arg1.numer/arg1.denom), 1, FLOAT);
         }
@@ -1794,7 +1793,7 @@ var _lt = function(stack_param)
             return build_true();
         return build_false();
     }
-    else if (arg0.TYPE === NUMBER && arg1.TYPE === NUMBER)
+    else if (number$(arg0) && number$(arg1))
     {
         if(arg0.numer/arg0.denom < arg1.numer/arg1.denom)
             return build_true();
@@ -1829,7 +1828,7 @@ var _slice = function(stack_param)
     var arg0 = stack_param[0];
     var arg1 = stack_param[1];
     var arg2 = stack_param[2];
-    if(arg1.TYPE !== NUMBER || arg2.TYPE !== NUMBER)
+    if(!number$(arg1) || !number$(arg2))
     {
         error("Function slice --- invalid parameters type");
         return build_atom('undefined');
@@ -1873,9 +1872,9 @@ var _to_ratio = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg = stack_param[0];
-    if(arg.TYPE === NUMBER)
+    if(number$(arg))
     {
-        if(arg.type === RATIO)
+        if(arg.TYPE === RATIO)
         {
             return arg;
         }
@@ -1955,7 +1954,7 @@ var dictionary$ = function(v)
 }
 var number$ = function(v)
 {
-    return v.TYPE === NUMBER ? true : false;
+    return (v.TYPE === INTEGER || v.TYPE === RATIO || v.TYPE === FLOAT) ? true : false;
 }
 var list$ = function(v)
 {
@@ -1996,7 +1995,7 @@ var eq$ = function(arg0, arg1)
     {
         return arg0 === arg1 ? true : false;
     }
-    else if (arg0.TYPE === NUMBER)
+    else if (number$(arg0))
     {
         return arg0.numer/arg0.denom === arg1.numer/arg1.denom ? true : false;
     }
@@ -2019,7 +2018,7 @@ var apply_vector_procedure = function(v, stack_param)
     if(stack_param.length === 1)
     {
         var arg = stack_param[0];
-        if(arg.TYPE===NUMBER)
+        if(arg.TYPE===INTEGER)
         {
             return v.ref(arg.numer);
         }  
@@ -2047,7 +2046,7 @@ var apply_vector_procedure = function(v, stack_param)
     {
         var arg0 = stack_param[0];
         var arg1 = stack_param[1];
-        if(arg0.TYPE === NUMBER)
+        if(arg0.TYPE === INTEGER)
         {
             v.set(arg0.numer, arg1);
             return v;
@@ -2789,15 +2788,15 @@ var symbol_table_copy = function(st)
     this time parameter is list
 */
 var compile_sequence = function(exp, env, instructions)
+{
+    if(null$(exp))
+        return instructions
+    else
     {
-        if(null$(exp))
-            return instructions
-        else
-        {
-            compiler(car(exp), env, instructions);
-            return compile_sequence(cdr(exp), env, instructions);
-        }
+        compiler(car(exp), env, instructions);
+        return compile_sequence(cdr(exp), env, instructions);
     }
+}
 
 var compiler = function(exp, env, instructions)
 {
@@ -2816,19 +2815,16 @@ var compiler = function(exp, env, instructions)
                          return compile_quasiquote(cadr(exp), env, instructions);
                     return compile_list(cadr(exp), env, instructions);
                 }
-                else if (cadr(exp).TYPE === NUMBER)
-                {
-                    if(cadr(exp).type === INTEGER)
-                         instructions.push([CONSTANT, cadr(exp).numer, 1]);
-                    else if (cadr(exp).type === FLOAT)
-                         instructions.push([CONSTANT, cadr(exp).numer, 2]);
-                    else // ratio
-                         instructions.push([RATIO, cadr(exp).numer, cadr(exp).denom]);
-                    return;
-                }
+                else if(cadr(exp).TYPE === INTEGER)
+                    instructions_push( instructions, make_inst(CONSTANT, cadr(exp).numer, 1))
+                else if (cadr(exp).TYPE === FLOAT)
+                    instructions_push( instructions, make_inst(CONSTANT, cadr(exp).numer, 2))
+                else if (cadr(exp).TYPE === RATIO)// ratio
+                    instructions_push( instructions, make_inst(RATIO, cadr(exp).numer, cadr(exp).denom))
+                
                 else // symbol
                 {
-                    instructions.push([CONSTANT, cadr(exp), 0]);
+                    instructions_push( instructions, make_inst(CONSTANT, cadr(exp), 0));
                 }
             }
             else if (tag.atom === "define")
@@ -2890,22 +2886,14 @@ var compiler = function(exp, env, instructions)
     }
     else // number
     {
-        if(exp.type === INTEGER)
-        {
-            instructions.push([CONSTANT, exp.numer, 1]);
-        }
-        else if (exp.type === FLOAT)
-        {
-            instructions.push([CONSTANT, exp.numer, 2]);
-        }
-        else if (exp.type === RATIO)
-        {
-            instructions.push([RATIO, exp.numer, exp.denom]);
-        }
+        if(exp.TYPE === INTEGER)
+            instructions_push( instructions, make_inst(CONSTANT, exp.numer, 1))
+        else if (exp.TYPE === FLOAT)
+            instructions_push( instructions, make_inst(CONSTANT, exp.numer, 2))
+        else if (exp.TYPE === RATIO) // ratio
+            instructions_push( instructions, make_inst(RATIO, exp.numer, exp.denom))
         else
-        {
             error("Invalid term");
-        }
         return;
     }
 }
