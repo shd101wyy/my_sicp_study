@@ -265,6 +265,8 @@
 ;; pass list as parameter
 ;; here instructions are list as well
 (define (compiler exp env instructions)
+	(if (symbol? exp)
+		)
 	)
 
 
