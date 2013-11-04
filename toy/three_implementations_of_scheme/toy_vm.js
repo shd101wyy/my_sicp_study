@@ -1010,7 +1010,7 @@ var VECTOR = 3;
 var ATOM = 4;
 var NIL = 5;
 var DICTIONARY = 6;
-var INTEGER = RATIO; // integer is part of ratio
+var INTEGER = 7; // integer is part of ratio
 var FLOAT = 8;
 var CLOSURE = 9;  // data type 
 var BUILTIN_PROCEDURE = 10;
@@ -1096,6 +1096,9 @@ var cdr = function(obj)
 {
     return obj['cdr'];
 }
+var cadr = function(obj){return car(cdr(obj))}
+var cddr = function(obj){return cdr(cdr(obj))}
+
 var set_car = function(x, value)
 {
     x.set_car(value);
@@ -1382,6 +1385,10 @@ var formatNumber = function(n)
         if (n.denom === 1)
             return ""+n.numer
         return n.numer + "/" + n.denom;
+    }
+    else if (n.TYPE === INTEGER)
+    {
+        return n.numer;
     }
     return n.numer.toFixed(6);
 }
@@ -1690,7 +1697,13 @@ var denom = function(rat){return rat.denom}
 var make_rat = function(numer, denom)
 {
     var g = gcd(numer, denom)
-    return build_number(numer/g, denom/g, RATIO);
+    var numer = numer/g;
+    var denom = denom/g;
+    if(denom === 1)
+        return build_number(numer, 1, INTEGER);
+    else
+        return build_number(numer, denom, RATIO);
+    // return build_number(numer/g, denom/g, RATIO);
 }
 // fraction arithematic
 var add_rat = function(x,y){
@@ -2668,7 +2681,11 @@ var instructions_length = function(instructions)
 }
 var instructions_display = function(instructions)
 {
-    console.log(instructions.stack);
+    var v = instructions.stack;
+    for(var i = 0; i < v.length; i++)
+    {
+        console.log(FormatInst(v[i]));
+    }
 }
 
 /*
@@ -2753,6 +2770,10 @@ var Symbol_Table = function()
         copy_one.length = this.frames.length;
         return copy_one;
     }
+    this.ref = function(i) /* refer frame */
+    {
+        return this.frames[i];
+    }
 }
 
 var make_symbol_table = function()
@@ -2783,6 +2804,43 @@ var symbol_table_copy = function(st)
 {
     return st.copy();
 }
+var symbol_table_ref = function(st, i)
+{
+    return st.ref(i);
+}
+/* =========================
+    Begin to write compiler
+   =========================
+*/
+
+/*
+    compile lookup
+    find var from env
+    where env is like
+    [
+        [a,b,c]   // global frame
+        [x,y,z]   // local frame
+     ]
+     find from local frame
+*/
+
+var compile_lookup = function(var_name, env, instructions)
+{
+    var n_m = symbol_table_lookup(env, var_name);
+    if(n_m[0] === -1) // didn't find var
+    {
+        // add var inside env
+        // that var is free variable
+        frame_push(symbol_table_ref(env, symbol_table_length(env)), var_name);
+        instructions_push(instructions, make_inst(REFER, env.length-1, env[env.length-1].length-1));
+        return;
+    } // find var
+    else{
+        instructions_push( instructions , make_inst(REFER, n_m[0], n_m[1]));
+        return;
+    }
+}
+
 /* 
     new compile sequence
     this time parameter is list
@@ -2797,7 +2855,6 @@ var compile_sequence = function(exp, env, instructions)
         return compile_sequence(cdr(exp), env, instructions);
     }
 }
-
 var compiler = function(exp, env, instructions)
 {
     if(exp.TYPE === ATOM) // symbol
@@ -2809,7 +2866,7 @@ var compiler = function(exp, env, instructions)
         {
             if(tag.atom === "quote" || tag.atom === "quasiquote")
             {
-                if(pair$(cadr(exp)))
+                if(cadr(exp).TYPE === LIST)
                 {
                     if(tag.atom === "quasiquote")
                          return compile_quasiquote(cadr(exp), env, instructions);
@@ -2898,7 +2955,7 @@ var compiler = function(exp, env, instructions)
     }
 }
 
-var x = "(define x ''(1 2))"
+var x = "()"
 var y = lexer(x);
 console.log(x);
 console.log(y);
@@ -2906,6 +2963,15 @@ var z = parser(y);
 console.log(formatList(z))
 
 
+var symbol_table = make_symbol_table();
+var global_frame = make_frame();
+symbol_table_push(symbol_table, global_frame);
+
+var instructions = make_instructions();
+
+var i = compile_sequence(z, symbol_table, instructions);
+
+instructions_display(i)
 
 
 
