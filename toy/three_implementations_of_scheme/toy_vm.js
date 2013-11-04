@@ -3075,7 +3075,12 @@ var extends_symbol_table = function(env, args)
     var new_frame = make_frame(); // make new frame
     while(!null$(args)) // copy variables to frame
     {
-        frame_push(new_frame, car(args));
+        var arg_obj = car(args);
+        if(arg_obj.TYPE !== ATOM)
+        {
+            error("Invalid parameter type");
+        }
+        frame_push(new_frame, arg_obj.atom);
         args = cdr(args);
     }
     symbol_table_push(new_env, new_frame);
@@ -3341,7 +3346,7 @@ var compiler = function(exp, env, instructions)
             {
                 return compile_lambda(lambda_arguments(exp),
                             lambda_body(exp),
-                            env.slice(0),
+                            symbol_table_copy(env),
                             instructions);
             }
             else // application
@@ -3378,7 +3383,7 @@ var compiler = function(exp, env, instructions)
     }
 }
 
-var x = "(if 1 2 3)"
+var x = "(define add (lambda (a b) b))"
 var y = lexer(x);
 console.log(x);
 console.log(y);
