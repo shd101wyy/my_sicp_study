@@ -3405,7 +3405,213 @@ instructions_display(i)
 
 
 
+var VM = function(instructions, environment, acc, pc, stack)
+{
+    if(instructions_length(instructions) === pc) // end of program
+    {
+        console.log("End...");
+        console.log(acc);
+        return acc;
+    }
+    else
+    {
+        console.log(FormatInst(instructions[pc]));
 
+        var inst = instructions_ref(instructions, pc);
+        var arg0 = inst[0];
+        var arg1 = inst[1];
+        var arg2 = inst[2];
+        if(arg0 === CONSTANT) // constant
+        {
+            var a;
+            if(arg2 === 0)    // atom
+                a = build_atom(arg1)
+            else if (arg2 === 1)  // integer
+                a = build_number(parseInt(arg1), 1, RATIO)
+            else if (arg2 === 2) // float
+                a = build_number(parseFloat(arg1), 1, FLOAT)
+            else if (arg2 === 3) // string
+            {
+                if(arg1.length == 2) // empty string
+                    a = ""
+                else {
+                    //a = build_atom(arg1.slice(1, arg1.length -1));
+                    a = build_atom(eval(arg1));
+                }
+            }
+            else
+                error("VM constant: Instruction Error");
+
+            return VM(instructions,
+                environment,
+                a,
+                pc+1,
+                stack);
+        }
+        else if (arg0 === RATIO)
+        {
+            var a = build_number(parseInt(arg1), parseInt(arg2), RATIO);
+            return VM(instructions,
+                environment,
+                a,
+                pc+1,
+                stack);
+        }
+        else if (arg0 === REFER)  // refer value from environment
+        {
+            return VM(instructions,
+                environment,
+                environment[arg1][arg2],
+                pc+1,
+                stack);
+        }
+        else if (arg0 === ASSIGN) // set value 
+        {
+            // set value from acc to environment
+            environment[arg1][arg2] = acc 
+            return VM(instructions,
+                environment,
+                acc,
+                pc+1,
+                stack);
+        }
+        else if (arg0 === FRAME)
+        {
+            stack.push(environment); // save environment
+            stack.push([]); // create argument frame
+            return VM(instructions,
+                environment,
+                acc,
+                pc+1,
+                stack);
+        }
+        else if (arg0 === ARGUMENT)
+        {
+            stack[stack.length - 1].push(acc);
+            return VM(instructions,
+                environment,
+                acc,
+                pc+1,
+                stack);
+        }
+        else if (arg0 === CALL)
+        {
+            /*
+                ;; call function, pop frame that stored in stack
+                ;; consider different situations
+                ;; 1. user defined procedure(lambda)
+                ;; 2. builtin procedures (like car cdr)
+                ;; 3. vectors
+                ;; 4. dictionary
+            */
+            if(closure$(acc)) // closure
+            {
+                // run closure
+                var start_pc = closure_start_pc(acc);
+                var base_environment = closure_environment(acc).slice(0); // this env is a copy of original env, 所以它push对原来的没有影响
+                // extend base_environment
+                base_environment.push(stack[stack.length - 1]);
+                // get new acc
+                var a = VM(instructions, 
+                           base_environment,
+                           build_atom('done'),
+                           start_pc,
+                           stack);
+                // pop argument frame
+                stack.pop();
+                // restore environment
+                return VM(instructions,
+                          stack.pop(),
+                          a,
+                          pc+1,
+                          stack);
+            } 
+            else if (builtin_procedure$(acc)) // builtin procedure
+            {
+                var a = apply_primitive_procedure(primitive_func(acc), stack.pop());
+                 return VM(instructions,
+                          stack.pop(),
+                          a,
+                          pc+1,
+                          stack);
+            }
+            else if (vector$(acc)) // vector
+            {
+                var a = apply_vector_procedure(acc, stack.pop());
+                return VM(instructions,
+                          stack.pop(),
+                          a,
+                          pc+1,
+                          stack);
+            }
+            else if (dictionary$(acc)) // dictionary
+            {
+                var a = apply_dictionary_procedure(acc, stack.pop());
+                return VM(instructions,
+                          stack.pop(),
+                          a,
+                          pc+1,
+                          stack);
+            }
+            else
+            {
+                error("Invalid calling");
+            }
+        }
+        else if (arg0 === GOTO)
+        {
+            return VM(instructions,
+                    environment,
+                    acc,
+                    arg1,
+                    stack);
+        }
+        else if (arg0 === TEST) // test test
+        { 
+            if(true$(acc)) // if passed test, run next
+            {
+                return VM(instructions,
+                        environment,
+                        acc,
+                        pc+1,
+                        stack);
+            }
+            else // jmp ahead
+            {
+                return VM(instructions,
+                        environment,
+                        acc,
+                        pc+arg1,
+                        stack);
+            }
+        }
+        else if (arg0 === JMP)
+        {
+            return VM(instructions,
+                      environment,
+                      acc,
+                      pc+arg1,
+                      stack);
+        }
+        else if (arg0 === CLOSE) // make closure
+        {
+            // arg1 is new pc
+            return VM(instructions,
+                      environment,
+                      make_closure(pc+1, environment),
+                      arg1+1,
+                      stack);
+        }
+        else if (arg0 === RETURN) // return
+            return acc;
+        else
+        {
+            error("Invalid Instructions");
+            console.log(arg0);
+            return ;
+        }
+    }
+}
 
 
 
