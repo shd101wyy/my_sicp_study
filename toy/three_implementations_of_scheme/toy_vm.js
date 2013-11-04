@@ -3156,6 +3156,110 @@ var compile_application = function(applic, args, env, instructions)
     // call funciton
     instructions_push(instructions, make_inst(CALL, 0, 0));
 }
+
+/*
+    Compile list
+    without calculation
+*/
+var compile_list = function(exp, env, instructions)
+{
+    instructions_push(instructions, make_inst(FRAME, 0, 0));
+    var compile_list_iter = function(exp, env, instructions)
+    {
+        if(null$(exp))
+        {
+            instructions_push(instructions, make_inst(REFER, 0, 15)); // refer list procedure
+            instructions_push(instructions, make_inst(CALL, 0, 0)); // call list procedure
+        }
+        else
+        {
+            var v = car(exp);
+            if(v.TYPE === LIST)
+            {
+                compile_list(v, env, instructions);
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else if (v.TYPE === INTEGER)
+            {
+                instructions_push(instructions, make_inst(CONSTANT, v.numer, 1));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else if (v.TYPE === FLOAT)
+            {
+                instructions_push(instructions, make_inst(CONSTANT, v.numer, 2));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else if (v.TYPE === RATIO)
+            {
+                instructions_push(instructions, make_inst(RATIO, v.numer, v.denom));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else
+            {
+                instructions_push(instructions, make_inst(CONSTANT, v, 0));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            return compile_list_iter(cdr(exp), env, instructions);
+        }
+    }
+    return compile_list_iter(exp, env, instructions);
+}
+/*
+    Compile list
+    with calculation
+*/
+var compile_quasiquote_list = function(exp, env, instructions)
+{
+    instructions_push(instructions, make_inst(FRAME, 0, 0));
+    var compile_list_iter = function(exp, env, instructions)
+    {
+        if(null$(exp))
+        {
+            instructions_push(instructions, make_inst(REFER, 0, 15)); // refer list procedure
+            instructions_push(instructions, make_inst(CALL, 0, 0)); // call list procedure
+        }
+        else
+        {
+            var v = car(exp);
+            if(v.TYPE === LIST)
+            {
+                if(eq$(car(v), build_atom("unquote")))
+                {
+                    compiler(cadr(v), env, instructions)
+                    instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+                }
+                else
+                {
+                    compile_list(v, env, instructions);
+                    instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+                }
+            }
+            else if (v.TYPE === INTEGER)
+            {
+                instructions_push(instructions, make_inst(CONSTANT, v.numer, 1));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else if (v.TYPE === FLOAT)
+            {
+                instructions_push(instructions, make_inst(CONSTANT, v.numer, 2));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else if (v.TYPE === RATIO)
+            {
+                instructions_push(instructions, make_inst(RATIO, v.numer, v.denom));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            else
+            {
+                instructions_push(instructions, make_inst(CONSTANT, v, 0));
+                instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
+            }
+            return compile_list_iter(cdr(exp), env, instructions);
+        }
+    }
+    return compile_list_iter(exp, env, instructions);
+}
+
 /* 
     new compile sequence
     this time parameter is list
