@@ -1150,7 +1150,14 @@ var primitive_procedure_list = [
     return symbol table for compiler
 */
 var Build_Symbol_Table = function(){
-    return [primitive_symbol_table_list];
+    var symbol_table = make_symbol_table();
+    var global_frame = make_frame();
+    for(var i = 0; i < primitive_symbol_table_list.length; i++)
+    {
+        frame_push(global_frame, primitive_symbol_table_list[i]);
+    }
+    symbol_table_push(symbol_table, global_frame)
+    return symbol_table;
 }
 var Build_Environment = function(){
     var output = [];
@@ -2414,10 +2421,13 @@ var compiler = function(exp, env, instructions)
                             symbol_table_copy(env),
                             instructions);
             }
+            /*
+            It is Wrong
             else if (tag.atom === "let")
             {
                 return compile_let(exp, env, instructions);
             }
+            */
             else // application
             {
                 return compile_application(application_head(exp),
@@ -2466,7 +2476,7 @@ var VM = function(instructions, environment, acc, pc, stack)
     }
     else
     {
-        console.log(FormatInst(instructions[pc]));
+        console.log(FormatInst(instructions_ref(instructions, pc)));
 
         var inst = instructions_ref(instructions, pc);
         var arg0 = inst[0];
@@ -2569,7 +2579,7 @@ var VM = function(instructions, environment, acc, pc, stack)
                            start_pc,
                            stack);
                 // pop argument frame
-                stack.pop();
+                // stack.pop();
                 // restore environment
                 return VM(instructions,
                           stack.pop(),
@@ -2654,7 +2664,11 @@ var VM = function(instructions, environment, acc, pc, stack)
                       stack);
         }
         else if (arg0 === RETURN) // return
+        {
+            // pop argument frame
+            stack.pop();
             return acc;
+        }
         else
         {
             error("Invalid Instructions");
@@ -2671,30 +2685,29 @@ var VM = function(instructions, environment, acc, pc, stack)
 
 
 
-var x = "(let ((a 12) (b 13)) a) x";
+var x = "(+ 12 13)";
 var y = lexer(x);
-console.log(x);
-console.log(y);
+// console.log(x);
+// console.log(y);
 var z = parser(y);
 console.log(formatList(z))
+console.log("FINISH TESTING LEXER AND PARSER");
 
-
-var symbol_table = make_symbol_table();
-var global_frame = make_frame();
-frame_push(global_frame, "x");
-frame_push(global_frame, "y");
-symbol_table_push(symbol_table, global_frame);
-
+var symbol_table = Build_Symbol_Table();
 var instructions = make_instructions();
 
 var i = compile_sequence(z, symbol_table, instructions);
 
+
 instructions_display(i)
+console.log("FINISH COMPILING =================== ");
 
 
 
 
-
+var env = Build_Environment();
+var o = VM(i, env, [], 0, []);
+console.log(o);
 
 
 
