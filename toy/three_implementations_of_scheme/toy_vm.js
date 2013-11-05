@@ -1496,10 +1496,12 @@ var lexer = function(input_str)
     {
         if(i == input_str.length)
             console.log("ERROR: Incomplete String");
-        if(input_str[i]=="\\")
-            return find_final_string_index(input_str, i+1);
-        if(input_str[i]=="\"")
+        else if(input_str[i]=="\\")
+            return find_final_string_index(input_str, i+2);
+        else if(input_str[i]==='"')
             return i+1;
+        else 
+            return find_final_string_index(input_str, i+1)
     }
     var find_final_number_of_atom_index = function(input_str, i)
     {
@@ -1516,7 +1518,7 @@ var lexer = function(input_str)
     }
     var lexer_iter = function(input_str, i)
     {
-        if(i==input_str.length)
+        if(i>=input_str.length)
             return null; // finish
         else if(input_str[i]===" " || input_str[i]=="\n" || input_str[i]=="\t") // remove space tab newline
             return lexer_iter(input_str, i + 1);
@@ -1533,8 +1535,7 @@ var lexer = function(input_str)
         else if(input_str[i]==='"')
         {
             var end = find_final_string_index(input_str, i+1);
-            return cons(cons( "(", cons( "quote", cons(  input_str.slice(i, end), ")"))), 
-                        lexer_iter(input_str, end))
+            return cons("(", cons("quote", cons(input_str.slice(i, end), cons(")", lexer_iter(input_str, end)))))
         }
         else if(input_str[i]===";")
             return lexer_iter(input_str, find_final_comment_index(input_str, i+1));
@@ -2217,7 +2218,10 @@ var compile_list = function(exp, env, instructions)
             }
             else
             {
-                instructions_push(instructions, make_inst(CONSTANT, v, 0));
+                if(v.atom[0]==='"')
+                    instructions_push(instructions, make_inst(CONSTANT, v.atom, 3));
+                else
+                    instructions_push(instructions, make_inst(CONSTANT, v.atom, 0));
                 instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
             }
             return compile_list_iter(cdr(exp), env, instructions);
@@ -2272,7 +2276,10 @@ var compile_quasiquote_list = function(exp, env, instructions)
             }
             else
             {
-                instructions_push(instructions, make_inst(CONSTANT, v, 0));
+                if(v.atom[0]==='"')
+                    instructions_push(instructions, make_inst(CONSTANT, v.atom, 3));
+                else
+                    instructions_push(instructions, make_inst(CONSTANT, v.atom, 0));                
                 instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
             }
             return compile_list_iter(cdr(exp), env, instructions);
@@ -2381,7 +2388,10 @@ var compiler = function(exp, env, instructions)
                 
                 else // symbol
                 {
-                    instructions_push( instructions, make_inst(CONSTANT, cadr(exp), 0));
+                    if(cadr(exp).atom[0] === '"') // string
+                        instructions_push( instructions, make_inst(CONSTANT, cadr(exp).atom, 3));
+                    else
+                        instructions_push( instructions, make_inst(CONSTANT, cadr(exp).atom, 0));
                 }
             }
             else if (tag.atom === "define")

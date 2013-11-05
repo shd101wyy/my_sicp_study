@@ -268,14 +268,16 @@
 	(define length 0)
 	(define (symbol-table-push push-value)
 		(push stack push-value))
-	(define (symbol-table-length)
-		length)
-	(define (symbol-table-pop push-value)
+	(define (symbol-table-pop)
 		(pop stack))
+  	(define (symbol-table-display)
+      (display stack))
 	{:push symbol-table-push
 	 :pop symbol-table-pop
-	 :length length}
+	 :length length
+  	 :display symbol-table-display}
 	)
+
 ;; Compiler 
 ;; pass list as parameter
 ;; here instructions are list as well
