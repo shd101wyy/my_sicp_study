@@ -281,31 +281,6 @@
 ;; I may not use parser written by Toy now
 
 
-
-;; make symbol table
-(define (make-symbol-table)
-	(define stack [])
-	(define length 0)
-	(define (symbol-table-push push-value)
-		(push stack push-value))
-	(define (symbol-table-pop)
-		(pop stack))
-  	(define (symbol-table-display)
-      (display stack))
-  	(lambda (msg)
-  		(cond ((eq? msg :pop)
-  				symbol-table-pop)
-  			  ((eq? msg :push)
-  			  	symbol-table-push)
-  			  ((eq? msg :display)
-  			  	symbol-table-display)
-  			  ((eq? msg :length)
-  			  	length)))
-	;;{:push symbol-table-push
-	;; :pop symbol-table-pop
-	;; :length (lambda () length)
-  	;; :display symbol-table-display})
-	)
 ;; make instruction
 ;; 3 args
 (define (make-inst arg0 arg1 arg2)
@@ -397,6 +372,12 @@
 				  		[i index] ;; find return result
 				  		))))
 		(lookup-iter 0))
+	(define (copy)
+  		(define new-symbol-table (make-symbol-table))
+  		((new-symbol-table :set-stack) (slice stack 0 length))
+  		((new-symbol-table :set-length) length)
+  		new-symbol-table
+  		)
 	(lambda (msg)
 		(cond ((eq? msg :push)
 				push)
@@ -406,6 +387,21 @@
 			  	lookup)
 			  ((eq? msg :length)
 			  	length))
+			  ((eq? msg :ref)
+  			  	(lambda (i)
+  			  		(frames i)))
+  			  ((eq? msg :stack)
+  			  	stack)
+  			  ((eq? msg :set-stack)
+  			  	(lambda (new-stack)
+  			  		(set! stack new-stack)))
+  			  ((eq? msg :set-length)
+  			  	(lambda (new-length)
+  			  		(set! length new-length)))
+  			  ((eq? msg :copy)
+  			  	copy) 
+  			  ((eq? msg :top)
+  			  	(stack (- length 1)))
 			  (error "Invalid keywords"))
 	;; {:push push
 	;;  :pop pop 
@@ -427,54 +423,112 @@
 (define GOTO 11)
 (define RATIO 12)
 
+(define (compile-lookup exp env instructions) ;; lookup var from symbol table
+	(define n-m ((env :lookup) exp))
+	(if (eq? (n-m 0) -1) ;; didn't find var
+		(begin 
+		;; add var inside env
+		;; this var is free variable
+			((((env :ref) (- (env :length) 1)) :push) var-name)
+			((instructions :push)
+				(make-inst REFER
+						   (- (env :length) 1)
+						   (- ((env :top) :length) 1)))
+			)
+		;; find var
+		((instructions :push) (make-inst REFER (n-m 0) (n-m 1)))
+		))
+
 ;; ===================
 ;; Compiler 
 ;; pass list as parameter
 ;; here instructions are list as well
 (define (compiler exp env instructions)
 	(cond ((atom? exp) ;; symbol (aotm)
-			(compile_lookup exp env instructions))
+			(compile-lookup exp env instructions))
 		  ((pair? exp) ;; list
 		  	(define tag (car exp))
-		  	(if (atom? tag)
+		  	(cond ((atom? tag)
 		  		(cond 
 		  			((or (eq? tag 'quote) (eq? tag 'quasiquote))
 		  				(cond ((pair? (cadr exp)) ;; list
-
+		  						(if (eq? tag 'quote) ;; quote
+		  							(compile_list (cadr exp) env instructions)
+		  							;; quasiquote
+		  							(compile_quasiquote_list (cadr exp) env instructions))
 		  						)
 		  					  ((integer? (cadr exp))
-
+		  					  	((instructions :push)
+		  					  		(make-inst CONSTANT cadr(exp) 1))
 		  					  	)
 		  					  ((float? (cadr exp))
-
+		  					  	((instructions :push)
+		  					  		(make-inst CONSTANT cadr(exp) 2))
 		  					  	)
 		  					  ((ratio? (cadr exp))
+		  					  	((instructions :push)
+		  					  		(make-inst RATIO (numerator (cadr exp)) (denominator (cadr exp))))
 		  					  	)
 		  					  (else ;; symbol
-
-		  					  	)
+		  					  	(if (eq? (ref (cadr exp) 0) "\"")  ;; string
+		  					  		((instructions :push)
+		  					  			(make-inst CONSTANT (cadr exp) 3))
+		  					  		((instructions :push)
+		  					  			(make-inst CONSTANT (cadr exp) 0))))
 		  					)
 		  				)
 		  			((eq? tag 'define)
-		  				)
+		  				(if (pair? (cadr exp))
+		  					(compiler (make-lambda exp) env instructions) ;; (define (func-name args) body)
+		  					(compile-definition definition-variable(exp)
+		  										definition-value(exp)
+		  										env
+		  										instructions)		
+		  					))
 		  			((eq? tag 'set!)
-		  				)
+		  				(if (pair? (cadr exp))
+		  					(compiler (make-lambda exp) env instructions) ;; (define (func-name args) body)
+		  					(compile-set assignment-variable(exp)
+		  										assignment-value(exp)
+		  										env
+		  										instructions)		
+		  					))
 		  			((eq? tag 'if)
-		  				)
+		  				(compile-if (if-test exp)
+		  							(if-consequent exp)
+		  							(if-alternative exp)
+		  							env
+		  							instructions))
 		  			((eq? tag 'cond)
-		  				)
+		  				(compiler (cond->if exp)
+		  						  env
+		  						  instructions))
 		  			((eq? tag 'begin)
-		  				)
+		  				(compile-sequence (cdr exp)
+		  								  env
+		  								  instructions))
 		  			((eq? tag 'lambda)
-		  				)
+		  				(compile-lambda (lambda-arguments exp)
+		  								(lambda-body exp)
+		  								((env :copy)) ;; make copy of env
+		  								instructions))
 		  			(else
-
+		  				(compile-application (application-head exp)
+		  									 (application-args exp)
+		  									 env
+		  									 instructions)
 		  				))
-		  		(   ;; tag is list
-		  			) 
+		  		
 		  		)
-		  	) 
-		  (else        ;; number
+				((pair? tag)
+					(compile-application (application-head exp)
+		  									 (application-args exp)
+		  									 env
+		  									 instructions)
+					)
+				(else
+					(error "Invalid tag"))))
+	 	  (else        ;; number
 		  	(cond ((integer? exp)
 		  			((instructions :push)
 		  				(make-inst CONSTANT exp 1)))
@@ -483,10 +537,9 @@
 		  		  		(make-inst CONSTANT exp 2)))
 		  		  ((ratio? exp)
 		  		  	((instructions :push)
-		  		  		(make-inst RATIO )))
+		  		  		(make-inst RATIO (numerator exp) (denominator exp))))
 		  		  (else
-		  		  	(error "compiler error : invalid value"))))
-		))
+		  		  	(error "compiler error : invalid value"))))))
 
 
 
