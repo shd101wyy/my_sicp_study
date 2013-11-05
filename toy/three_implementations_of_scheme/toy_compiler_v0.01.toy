@@ -261,6 +261,21 @@
 ;; I may not use parser written by Toy now
 
 
+
+;; make symbol table
+(define (make-symbol-table)
+	(define stack [])
+	(define length 0)
+	(define (symbol-table-push push-value)
+		(push stack push-value))
+	(define (symbol-table-length)
+		length)
+	(define (symbol-table-pop push-value)
+		(pop stack))
+	{:push symbol-table-push
+	 :pop symbol-table-pop
+	 :length length}
+	)
 ;; Compiler 
 ;; pass list as parameter
 ;; here instructions are list as well

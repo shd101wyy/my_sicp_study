@@ -1614,6 +1614,10 @@ var parser = function(l)
         {
             return build_number(getNumerator(l), getDenominator(l), RATIO);
         }
+        else if (l[0]===":")  // keyword
+        {
+            return cons(build_atom("quote"), cons(build_atom(l), build_nil()))
+        }
         else
             return build_atom(l);
     }
@@ -2684,7 +2688,7 @@ var VM = function(instructions, environment, acc, pc, stack)
 
 
 
-
+/* 
 var x = "(+ 12 13)";
 var y = lexer(x);
 // console.log(x);
@@ -2708,7 +2712,7 @@ console.log("FINISH COMPILING =================== ");
 var env = Build_Environment();
 var o = VM(i, env, [], 0, []);
 console.log(o);
-
+*/ 
 
 
 

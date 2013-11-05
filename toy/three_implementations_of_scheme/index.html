@@ -113,35 +113,37 @@
 			// var content = document.getElementById('textarea').value;
 			var content = editor.getValue();
 			console.log(content);
+
 			/*
 				lexer and parser test
 			*/
 			var x = content;
-			// var x = "(define add (lambda (a b) (+ a b))) (add 3 4) (add 5 6) (add 7 8)"
-			var l = Lexer(x);
-			var s = Parser(l);
-
-			console.log(s)
-			console.log("Finish testing lexer and parser")
-			console.log("==========\n\n\n\n")
+			var y = lexer(x);
+			// console.log(x);
+			// console.log(y);
+			var z = parser(y);
+			console.log(formatList(z))
+			console.log("FINISH TESTING LEXER AND PARSER========\n\n");
 
 			/*
 			    test compiler
 			*/
 			var symbol_table = Build_Symbol_Table();
-			var instructions = [];
-			var i = compile_sequence(s, symbol_table, instructions);
-			PrintInstructions(i)
-			console.log("Finish testing compiler")
-			console.log("==========\n\n\n\n")
+			var instructions = make_instructions();
+
+			var i = compile_sequence(z, symbol_table, instructions);
+
+
+			instructions_display(i)
+			console.log("FINISH COMPILING =================== \n\n");
+
 
 			/*
 			    test virtual machine
 			*/
 			var env = Build_Environment();
-			var o = VM(i, env, build_atom('done'), 0, []);
-			console.log(env)
-
+			var o = VM(i, env, [], 0, []);
+			console.log(o);
 		}
 
 
