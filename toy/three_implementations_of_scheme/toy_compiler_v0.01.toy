@@ -364,13 +364,14 @@
 		  	) 
 		  (else        ;; number
 		  	(cond ((integer? exp)
-
-		  			)
+		  			((instructions :push)
+		  				(make-inst CONSTANT exp 1)))
 		  		  ((float? exp)
-
-		  		  	)
+		  		  	((instructions :push)
+		  		  		(make-inst CONSTANT exp 2)))
 		  		  ((ratio? exp)
-
+		  		  	((instructions :push)
+		  		  		(make-inst RATIO ))
 		  		  	)
 		  		  (else
 		  		  	(error "compiler error : invalid value"))))

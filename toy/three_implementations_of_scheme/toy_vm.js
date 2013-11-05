@@ -1134,17 +1134,53 @@ var _random = function(stack_param)
     return build_number(a, 1, FLOAT);
 }
 
+var _numerator = function(stack_param)
+{
+    checkParam(1);
+    var arg = stack_param[0];
+    if(arg.TYPE === INTEGER || arg.TYPE === RATIO)
+    {
+        return build_number(arg.numer, 1, INTEGER);
+    }
+    else if(arg.TYPE === FLOAT)
+    {
+        return build_number(arg.numer, 1, FLOAT);
+    }
+    else
+    {
+        error("Function numerator invalid parameter type");
+        return build_atom('undefined');
+    }
+}
+var _denominator = function(stack_param)
+{
+    checkParam(1);
+    var arg = stack_param[0];
+    if(arg.TYPE === INTEGER || arg.TYPE === FLOAT)
+    {
+        return build_number(1, 1, INTEGER);
+    }
+    else if (arg.TYPE === RATIO)
+    {
+        return build_number(arg.denom, 1, INTEGER);
+    }
+    else
+    {
+        error("Function numerator invalid parameter type");
+        return build_atom('undefined');
+    }
+}
 // summary
 var primitive_symbol_table_list = [
 'car', 'cdr', 'set-car!', 'set-cdr!', 'cons', 'closure?', 'vector?', 'dictionary?', 'number?', 'pair?', 'atom?', 'builtin-procedure?',
 'display', 'dictionary', 'vector', 'list', 'eq?', 'push', 'pop', 'integer?', 'float?', 'null?', '+', '-', '*', "/", '->str', 'atom-ref'
-,'<','len', 'slice', 'dictionary-keys','ratio?','->ratio', 'random'
+,'<','len', 'slice', 'dictionary-keys','ratio?','->ratio', 'random', 'numerator', 'denominator'
 
 ];
 var primitive_procedure_list = [
     _car, _cdr, _set_car, _set_cdr, _cons, _closure$, _vector$, _dictionary$, _number$, _pair$, _atom$, _builtin_procedure$,
     _display, _dictionary, _vector, _list, _eq$, _push, _pop, _integer$, _float$, _null$, _add, _sub, _mul, _div, _str, _atom_ref,
-    _lt, _len, _slice, _dictionary_keys, _ratio$, _to_ratio, _random
+    _lt, _len, _slice, _dictionary_keys, _ratio$, _to_ratio, _random, _numerator, _denominator
 ];
 
 /*
@@ -2526,9 +2562,12 @@ var VM = function(instructions, environment, acc, pc, stack)
                 pc+1,
                 stack);
         }
-        else if (arg0 === RATIO)
+        else if (arg0 === RATIO) // calculate rational number
         {
-            var a = build_number(parseInt(arg1), parseInt(arg2), RATIO);
+            var numer = parseInt(arg1); var denom = parseInt(arg2);
+            var g = gcd(numer, denom);
+            numer = numer/g; denom = denom/g;
+            var a = build_number(numer, denom, RATIO);
             return VM(instructions,
                 environment,
                 a,
