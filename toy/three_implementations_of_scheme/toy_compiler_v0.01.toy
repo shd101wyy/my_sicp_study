@@ -88,6 +88,7 @@
 ;; Version 0.01
 ;; tokenize input_string to list
 ;; Lexer Doesnt Work
+;; well don't use this function
 (define (lexer input_string)
 	;; find final index of comment
 	(define (find-final-comment-index input_string i)
@@ -182,6 +183,7 @@
 ;; parse tokenized input_string list to 
 ;; syntax tree
 ;; well parser works
+;; well don't use this function
 (define (parser l)
 	;; return (result . rest)
 	(define (parse-list l)
@@ -275,8 +277,82 @@
 	{:push symbol-table-push
 	 :pop symbol-table-pop
 	 :length length
-  	 :display symbol-table-display}
-	)
+  	 :display symbol-table-display})
+;; make instruction
+;; 3 args
+(define (make-inst arg0 arg1 arg2)
+	[arg0 arg1 arg2])
+;; make instructions
+(define (make-instructions)
+	(define stack [])
+	(define length 0)
+	(define (instructions-push push-value) ;; push inst
+		(push stack push-value)
+		(set! length (+ length 1)))
+	(define (instructions-pop)               
+		(pop stack)
+		(set! length (- length 1)))
+	(define (instructions-ref i)
+		(stack i))
+	{:push instructions-push
+	 :pop instructions-pop
+	 :length length
+	 :ref instructions-ref
+		})
+
+;; make frame
+(define (make-frame)
+	(define stack [])
+	(define length 0)
+	(define (push var-name)
+		(push stack var-name)
+		(set! length (+ length 1)))
+	(define (pop)
+		(pop stack)
+		(set! length (- length 1)))
+	(define (lookup var-name)
+		(define (lookup-iter var-name i)
+			(cond ((eq? i length) ;; didn't find var at this frame
+					-1)
+				  ((eq? var-name (stack i))
+				  	i) ;; find var
+				  (else 
+					(lookup-iter var-name (+ i 1)))
+				))
+		(lookup-iter var-name 0))
+	{:push push      ;; return public procedures
+	 :pop pop 
+	 :length length 
+	 :lookup lookup
+		})
+;; make symbol table
+(define (make-symbol-table)
+	(define frames [])
+	(define length 0)
+	(define (push frame)
+		(push frames frame)
+		(set! length (+ length 1)))
+	(define (pop)
+		(pop frames)
+		(set! length (- length 1)))
+	(define (lookup var-name)
+		(define (lookup-iter i)
+			(cond ((eq? i length);; didn't find var
+					[-1 -1])
+				  (else 
+				  	(define index ((frames :lookup) var-name))
+				  	(if (eq? index -1)
+				  		;; didn't find continue recur
+				  		(lookup-iter (+ i 1))
+				  		[i index] ;; find return result
+				  		))))
+		(lookup-iter 0))
+	{:push push
+	 :pop pop 
+	 :lookup lookup
+	 :length length
+		})
+
 
 ;; Compiler 
 ;; pass list as parameter

@@ -1588,7 +1588,7 @@ var parser = function(l)
         l = cdr(l);
         if (car(l) === "(") // list
         {
-            return cons(tag, parse_list(cdr(l)));
+            return cons(tag, cons(parse_list(cdr(l)), build_nil()));
         }
         else if (car(l) === "'" || car(l) === "," || car(l) === "@")  // quote unquote quasiquote
         {   // here my be some errors
