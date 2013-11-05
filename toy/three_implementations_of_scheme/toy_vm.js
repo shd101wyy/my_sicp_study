@@ -2131,7 +2131,7 @@ var make_lambda = function(exp)
     var body = cdr(cdr(exp));           // ((+ a b))
 
     var lambda_body = cons(build_atom('lambda'), cons(args, body))
-    return cons(tag, cons(var_name, lambda_body))
+    return cons(tag, cons(var_name, cons(lambda_body, build_nil())))
 }
 
 /*
