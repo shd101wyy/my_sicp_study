@@ -1597,7 +1597,7 @@ var parser = function(l)
         else  // symbol or number
         {
             rest = cdr(l);
-            return cons(tag, parse_symbol_or_number(car(l)));
+            return cons(tag, cons(parse_symbol_or_number(car(l)), build_nil()));
         }
     }
     var parse_symbol_or_number = function(l)
@@ -2236,7 +2236,7 @@ var compile_list = function(exp, env, instructions)
 var compile_quasiquote_list = function(exp, env, instructions)
 {
     instructions_push(instructions, make_inst(FRAME, 0, 0));
-    var compile_list_iter = function(exp, env, instructions)
+    var compile_quasiquote_list_iter = function(exp, env, instructions)
     {
         if(null$(exp))
         {
@@ -2249,7 +2249,7 @@ var compile_quasiquote_list = function(exp, env, instructions)
             if(v.TYPE === LIST)
             {
                 if(eq$(car(v), build_atom("unquote")))
-                {
+                {                    
                     compiler(cadr(v), env, instructions)
                     instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
                 }
@@ -2282,10 +2282,10 @@ var compile_quasiquote_list = function(exp, env, instructions)
                     instructions_push(instructions, make_inst(CONSTANT, v.atom, 0));                
                 instructions_push(instructions, make_inst(ARGUMENT, 0, 0));
             }
-            return compile_list_iter(cdr(exp), env, instructions);
+            return compile_quasiquote_list_iter(cdr(exp), env, instructions);
         }
     }
-    return compile_list_iter(exp, env, instructions);
+    return compile_quasiquote_list_iter(exp, env, instructions);
 }
 /*
     compile let statements
@@ -2376,7 +2376,7 @@ var compiler = function(exp, env, instructions)
                 if(cadr(exp).TYPE === LIST)
                 {
                     if(tag.atom === "quasiquote")
-                         return compile_quasiquote(cadr(exp), env, instructions);
+                         return compile_quasiquote_list(cadr(exp), env, instructions);
                     return compile_list(cadr(exp), env, instructions);
                 }
                 else if(cadr(exp).TYPE === INTEGER)
