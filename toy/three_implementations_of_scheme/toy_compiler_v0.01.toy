@@ -22,12 +22,30 @@
 	(display (+ "ERROR: " msg)))
 (define (not judge)
 	(if judge false true))
+(define (or arg1 arg2) ;; this or procedure only supports 2 parameters
+	(if arg1 true 
+		(if arg2 true false)))
+(define (and arg1 arg2) ;; this and procedure only supports 2 parameters
+	(if arg1 
+		(if arg2 true false)
+		false))
 
 ;; list-ref
 (define (list-ref l i)
 	(if (eq? i 0)
 		(car l)
 		(list-ref (cdr l) (- i 1))))
+(define (ref obj index)
+	(cond ((pair? obj)
+			(list-ref obj index))
+	 	  ((vector? obj)
+	 	  	(obj index))
+	 	  ((atom? obj)
+	 	  	(atom-ref obj index))
+	 	  (else
+	 	  	(display "ERROR: procedure ref invalid parameters type"))))
+
+(define ref list-ref)
 ;; define procedure that gets list length
 (define list-length (lambda (l)
 	(define (list-length-iter l count)
@@ -274,10 +292,20 @@
 		(pop stack))
   	(define (symbol-table-display)
       (display stack))
-	{:push symbol-table-push
-	 :pop symbol-table-pop
-	 :length (lambda () length)
-  	 :display symbol-table-display})
+  	(lambda (msg)
+  		(cond ((eq? msg :pop)
+  				symbol-table-pop)
+  			  ((eq? msg :push)
+  			  	symbol-table-push)
+  			  ((eq? msg :display)
+  			  	symbol-table-display)
+  			  ((eq? msg :length)
+  			  	length)))
+	;;{:push symbol-table-push
+	;; :pop symbol-table-pop
+	;; :length (lambda () length)
+  	;; :display symbol-table-display})
+	)
 ;; make instruction
 ;; 3 args
 (define (make-inst arg0 arg1 arg2)
@@ -294,11 +322,23 @@
 		(set! length (- length 1)))
 	(define (instructions-ref i)
 		(stack i))
-	{:push instructions-push
-	 :pop instructions-pop
-	 :length (lambda () length)
-	 :ref instructions-ref
-	 :display (lambda () (display stack))})
+	(lambda (msg)
+		(cond ((eq? msg :push)
+				instructions-push)
+			  ((eq? msg :pop)
+			  	instructions-pop)
+			  ((eq? msg :length)
+			  	length)
+			  ((eq? msg :ref)
+			  	instructions-ref)
+			  (else 
+			  	(error "Invalid keywords"))))
+	;;{:push instructions-push
+	;; :pop instructions-pop
+	;; :length (lambda () length)
+	;; :ref instructions-ref
+	;; :display (lambda () (display stack))})
+	)
 
 ;; make frame
 (define (make-frame)
@@ -320,10 +360,21 @@
 					(lookup-iter var-name (+ i 1)))
 				))
 		(lookup-iter var-name 0))
-	{:push push      ;; return public procedures
-	 :pop pop 
-	 :length (lambda () length)
-	 :lookup lookup})
+	(lambda (msg)
+		(cond ((eq? msg :push)
+				push)
+			  ((eq? msg :pop)
+			  	pop)
+			  ((eq? msg :lookup)
+			  	lookup)
+			  ((eq? msg :length)
+			  	length))
+			  (error "Invalid keywords"))
+	;; {:push push      ;; return public procedures
+	;;  :pop pop 
+	;;  :length (lambda () length)
+	;;  :lookup lookup})
+	)
 ;; make symbol table
 (define (make-symbol-table)
 	(define frames [])
@@ -346,11 +397,35 @@
 				  		[i index] ;; find return result
 				  		))))
 		(lookup-iter 0))
-	{:push push
-	 :pop pop 
-	 :lookup lookup
-	 :length (lambda () length)})
+	(lambda (msg)
+		(cond ((eq? msg :push)
+				push)
+			  ((eq? msg :pop)
+			  	pop)
+			  ((eq? msg :lookup)
+			  	lookup)
+			  ((eq? msg :length)
+			  	length))
+			  (error "Invalid keywords"))
+	;; {:push push
+	;;  :pop pop 
+	;;  :lookup lookup
+	;;  :length (lambda () length)})
+	)
 
+;;;  opcodes
+(define CONSTANT 1)
+(define REFER 2)
+(define ASSIGN 3)
+(define CLOSE 4)
+(define RETURN 5)
+(define FRAME 6)
+(define ARGUMENT 7)
+(define CALL 8)
+(define TEST 9)
+(define JMP 10)
+(define GOTO 11)
+(define RATIO 12)
 
 ;; ===================
 ;; Compiler 
@@ -360,7 +435,44 @@
 	(cond ((atom? exp) ;; symbol (aotm)
 			(compile_lookup exp env instructions))
 		  ((pair? exp) ;; list
+		  	(define tag (car exp))
+		  	(if (atom? tag)
+		  		(cond 
+		  			((or (eq? tag 'quote) (eq? tag 'quasiquote))
+		  				(cond ((pair? (cadr exp)) ;; list
 
+		  						)
+		  					  ((integer? (cadr exp))
+
+		  					  	)
+		  					  ((float? (cadr exp))
+
+		  					  	)
+		  					  ((ratio? (cadr exp))
+		  					  	)
+		  					  (else ;; symbol
+
+		  					  	)
+		  					)
+		  				)
+		  			((eq? tag 'define)
+		  				)
+		  			((eq? tag 'set!)
+		  				)
+		  			((eq? tag 'if)
+		  				)
+		  			((eq? tag 'cond)
+		  				)
+		  			((eq? tag 'begin)
+		  				)
+		  			((eq? tag 'lambda)
+		  				)
+		  			(else
+
+		  				))
+		  		(   ;; tag is list
+		  			) 
+		  		)
 		  	) 
 		  (else        ;; number
 		  	(cond ((integer? exp)
@@ -371,8 +483,7 @@
 		  		  		(make-inst CONSTANT exp 2)))
 		  		  ((ratio? exp)
 		  		  	((instructions :push)
-		  		  		(make-inst RATIO ))
-		  		  	)
+		  		  		(make-inst RATIO )))
 		  		  (else
 		  		  	(error "compiler error : invalid value"))))
 		))
