@@ -276,7 +276,7 @@
       (display stack))
 	{:push symbol-table-push
 	 :pop symbol-table-pop
-	 :length length
+	 :length (lambda () length)
   	 :display symbol-table-display})
 ;; make instruction
 ;; 3 args
@@ -296,9 +296,9 @@
 		(stack i))
 	{:push instructions-push
 	 :pop instructions-pop
-	 :length length
+	 :length (lambda () length)
 	 :ref instructions-ref
-		})
+	 :display (lambda () (display stack))})
 
 ;; make frame
 (define (make-frame)
@@ -322,9 +322,8 @@
 		(lookup-iter var-name 0))
 	{:push push      ;; return public procedures
 	 :pop pop 
-	 :length length 
-	 :lookup lookup
-		})
+	 :length (lambda () length)
+	 :lookup lookup})
 ;; make symbol table
 (define (make-symbol-table)
 	(define frames [])
@@ -350,17 +349,32 @@
 	{:push push
 	 :pop pop 
 	 :lookup lookup
-	 :length length
-		})
+	 :length (lambda () length)})
 
 
+;; ===================
 ;; Compiler 
 ;; pass list as parameter
 ;; here instructions are list as well
 (define (compiler exp env instructions)
-	(if (symbol? exp)
-		)
-	)
+	(cond ((atom? exp) ;; symbol (aotm)
+			(compile_lookup exp env instructions))
+		  ((pair? exp) ;; list
+
+		  	) 
+		  (else        ;; number
+		  	(cond ((integer? exp)
+
+		  			)
+		  		  ((float? exp)
+
+		  		  	)
+		  		  ((ratio? exp)
+
+		  		  	)
+		  		  (else
+		  		  	(error "compiler error : invalid value"))))
+		))
 
 
 

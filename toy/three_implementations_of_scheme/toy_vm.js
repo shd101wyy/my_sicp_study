@@ -606,7 +606,7 @@ var formatNumber = function(n)
     {
         return n.numer;
     }
-    return n.numer.toFixed(6);
+    return parseFloat(n.numer).toFixed(6);
 }
 var formatAtom = function(a)
 {
@@ -867,7 +867,8 @@ var _integer$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === RATIO && arg0.denom === 1){
+    console.log(arg0);
+    if(arg0.TYPE === INTEGER){
         return build_true();
     }
     return build_false();
@@ -876,7 +877,7 @@ var _ratio$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var arg0 = stack_param[0];
-    if(arg0.TYPE === RATIO){
+    if(arg0.TYPE === RATIO || arg0.TYPE === INTEGER){
         return build_true();
     }
     return build_false();
@@ -1609,7 +1610,9 @@ var parser = function(l)
                 return build_number(l, 1, INTEGER);
             }
             else // float
+            {
                 return build_number(l, 1, FLOAT);
+            }
         }
         else if (isRatio(l))
         {
@@ -2502,7 +2505,7 @@ var VM = function(instructions, environment, acc, pc, stack)
             if(arg2 === 0)    // atom
                 a = build_atom(arg1)
             else if (arg2 === 1)  // integer
-                a = build_number(parseInt(arg1), 1, RATIO)
+                a = build_number(parseInt(arg1), 1, INTEGER)
             else if (arg2 === 2) // float
                 a = build_number(parseFloat(arg1), 1, FLOAT)
             else if (arg2 === 3) // string
