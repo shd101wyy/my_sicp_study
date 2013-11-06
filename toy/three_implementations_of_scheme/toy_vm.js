@@ -9,6 +9,17 @@
 ;; 现在的虚拟机只是core， implement最基本的内容
 
 
+Lisp macros are very different to C macros. They are a way to transform lisp code. Macros will be used in Lisp code. During a macroexpansion phase, the Lisp expression will be passed to the macro function. This macro function can do arbitrary computation at macroexpansion time. The result of this call has to be again Lisp code. This Lisp code then is what the interpreter or compiler sees and executes or compiles.
+So a typical sequence in a toplevel READ-EVAL-PRINT loop looks like this:
+1.) read a Lisp expression. Input comes from a stream and the result is a Lisp expression (interned Lisp data).
+(read) -> you type "(incf x)" , Lisp reads a list with two symbols.
+2.) macro expand this Lisp expression if it is a macro form. the result is a new Lisp expression (interned Lisp data)
+(macroexpand '(incf x)) -> some new Lisp expression
+3.) compile the Lisp code
+4.) execute the compiled code
+5.) print the results
+所以我还是得写 interpreter
+
 ;;    For the Compiler Machine
 ;;    exp environment 
 
@@ -30,6 +41,7 @@
 ;;    jmp steps       ; jmp steps
 ;;    goto pc         ; goto pc; this instruction may replace jmp in the future
 ;;    ratio numer denom ;; create ratio number
+;;    macro           ; create macro
 ;;
 ;;
 */
@@ -45,6 +57,7 @@ var TEST = 9;
 var JMP = 10;
 var GOTO = 11;
 var RATIO = 12;
+var MACRO = 13;
 
 var error = function(x)
 {
@@ -226,6 +239,7 @@ var INTEGER = 7; // integer is part of ratio
 var FLOAT = 8;
 var CLOSURE = 9;  // data type 
 var BUILTIN_PROCEDURE = 10;
+var USER_MACRO = 11;
 // var RATIO = 12; RATIO is defined as instruction as well. so I will not define it here
 
 // build atom data type
@@ -430,10 +444,24 @@ var Closure = function(start_pc, environment)
     this.NULL = false   // for virtual machine check
     this.TYPE = CLOSURE  // for virtual machien check 
 }
+/*
+    Build Macro Data Type
+*/
+var Macro = function(start_pc, environment)
+{
+    this.start_pc = start_pc;
+    this.environment = environment.slice(0);
 
+    this.NULL = false       // for virtual machine check
+    this.TYPE = USER_MACRO  // for virtual machien check .
+}
 var make_closure = function(start_pc, environment) // start-pc is where instruction starts
 {
     return new Closure(start_pc, environment)
+}
+var make_macro = function(start_pc, environment)
+{
+    return new Macro(start_pc, environment)
 }
 var closure_start_pc = function(closure)
 {
@@ -1217,6 +1245,10 @@ var closure$ = function(v)
 {
     return v.TYPE === CLOSURE ? true : false;
 }
+var macro$ = function(v)
+{
+    return v.TYPE === USER_MACRO ? true : false;
+}
 var vector$ = function(v)
 {
     return v.TYPE === VECTOR ? true : false;
@@ -1408,6 +1440,8 @@ var FormatInst = function(inst)
         output = output + "goto"
     else if (i===RATIO)
         output = output + "ratio"
+    else if (i===MACRO)
+        output = output + "macro"
     else
         error("Invalid instruction");
     output = output + " " + inst[1] + " " + inst[2];
@@ -2158,6 +2192,21 @@ var compile_lambda = function(args, body, env, instructions)
     // set close 2nd arg to index of return
     instructions_ref(instructions, index)[1]= instructions.length - 1; 
 }
+var compile_macro = function(args, body, env, instructions)
+{
+    // save current index, which is the index of (close arg1)
+    var index = instructions_length(instructions);
+    // add close
+    instructions_push(instructions, make_inst(MACRO, 0, 0));
+    // extend symbol_table
+    var new_env = extends_symbol_table(env, args);
+    // compile body
+    compile_sequence(body, new_env, instructions);
+    // add return
+    instructions_push(instructions, make_inst(RETURN, 0, 0));
+    // set close 2nd arg to index of return
+    instructions_ref(instructions, index)[1]= instructions.length - 1; 
+}
 /*
     (define (add a b) (+ a b))
     =>
@@ -2474,6 +2523,13 @@ var compiler = function(exp, env, instructions)
                             symbol_table_copy(env),
                             instructions);
             }
+            else if (tag.atom === "macro")
+            {
+                return compile_macro(lambda_arguments(exp),
+                            lambda_body(exp),
+                            symbol_table_copy(env),
+                            instructions);
+            }
             /*
             It is Wrong
             else if (tag.atom === "let")
@@ -2670,6 +2726,11 @@ var VM = function(instructions, environment, acc, pc, stack)
                           pc+1,
                           stack);
             }
+            else if (macro$(acc)) // macro
+            {
+                error("Cannot run macro using virtual machine");
+                error("Macro should be expanded using interpreter and then compile to VM instructions");
+            }
             else
             {
                 error("Invalid calling");
@@ -2716,6 +2777,15 @@ var VM = function(instructions, environment, acc, pc, stack)
             return VM(instructions,
                       environment,
                       make_closure(pc+1, environment),
+                      arg1+1,
+                      stack);
+        }
+        else if (arg0 === MACRO) // make closure
+        {
+            // arg1 is new pc
+            return VM(instructions,
+                      environment,
+                      make_macro(pc+1, environment),
                       arg1+1,
                       stack);
         }
