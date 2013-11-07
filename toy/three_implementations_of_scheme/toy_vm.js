@@ -2883,6 +2883,24 @@ var interpreter_ = function(exp, symbol_table, instructions, environment, acc, p
             var compiled_args = VM(instructions, environment, acc, pc, stack);
             return interpreter_(cons(applic, compiled_args), symbol_table, instructions, environment, acc, pc, stack)
         }
+        else if (eq$(tag, build_atom('macroexpand'))) // this place has error... it cannot run like (display (macroexpand '(define x 12)))
+        {
+            var v = cadr(exp);
+            pc = instructions.length; // save pc
+            interpreter_(v, symbol_table, instructions, environment, acc, pc, stack)
+            var compiled_v = VM(instructions, environment, acc, pc, stack);
+
+            var macro_name = car(compiled_v);
+            var n_m = symbol_table_lookup(symbol_table, macro_name.atom);
+            if(n_m[0]!=-1 && environment[n_m[0]][n_m[1]].TYPE === USER_MACRO) // macro
+            {
+                var macro = environment[n_m[0]][n_m[1]];
+                var expanded_value = macro_expand(compiled_v, instructions, environment, macro.start_pc) 
+                return interpreter_(cons(build_atom('quote'), cons(expanded_value, build_nil())), symbol_table, instructions, environment, acc, pc, stack  );
+            }
+            else                                                              // it is not macro
+                error("invalid macroexpand")
+        }
         else
         {
             // check macro
@@ -2902,10 +2920,23 @@ var interpreter_ = function(exp, symbol_table, instructions, environment, acc, p
         return compiler(exp, symbol_table, instructions);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+/*
 var x = "(apply + '(3 4))"
 var y = lexer(x)
 var z = parser(y)
 interpreter(z)
+*/
 /* 
 var x = "(+ 12 13)";
 var y = lexer(x);
