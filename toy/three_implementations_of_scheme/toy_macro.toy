@@ -1,0 +1,112 @@
+;;
+;;
+;;  extract macro
+;;
+;;  (defmacro square (x) @(* ,x ,x))
+
+(define (cadr exp) (car (cdr exp)))
+(define (caddr exp) (car (cdr (cdr exp))))
+(define (cdddr exp) (cdr (cdr (cdr (exp)))))
+(define (cdar exp) (cdr (car exp)))
+
+
+;; macro:
+;; arg, body
+
+;; find assoc
+(define (assoc key table)
+	(if (null? table)
+		'()
+		(if (eq? (caar table) key)
+			(car table)
+			(assoc key (cdr table)))))
+(define (associate-params arguments parameters)
+	(if (null? arguments)
+		'()
+		(cons (cons (car arguments) (car parameters))
+			  (associate-params (cdr arguments) (cdr parameters)))))
+
+(define (quasiquote-for-macroexpand exp arg-list)
+	(cond ((null? exp)
+			'())
+		  ((pair? (car exp))
+		  	(cond ((eq? (caar exp) 'unquote)
+		  			(define v (assoc (cadar exp) arg-list))
+		  			(cond ((null? v)  ;; it is not one of argument
+ 		  					(cons (car exp)  ;; go check environment
+ 		  									 ;; if it is in environment
+ 		  									 ;; use it
+ 		  									 ;; otherwise print error
+ 		  						(quasiquote-for-macroexpand (cdr exp) arg-list)))
+		  				  (else ;; it is one of argument
+		  				  	(cons (cdr v)
+		  				  		  (quasiquote-for-macroexpand (cdr exp) arg-list)))))
+		  		  (else
+		  		  	(cons (car exp)
+		  		  		  (quasiquote-for-macroexpand (cdr exp) arg-list)))))
+		  (else
+		  	(cons (car exp)
+		  		  (quasiquote-for-macroexpand (cdr exp) arg-list)))))
+;; (square 12)
+(define (__macroexpand exp macro env)
+	(define parameters (cdr exp))
+	(define arguments (car macro))
+	(define macro-body (cdr macro))
+	(define arg-list (associate-params arguments parameters));
+	(define (__macroexpand-iter exp arg-list)
+		(cond ((null? exp) '())
+			  ((atom? (car exp))
+			  	(define v (assoc (car exp) arg-list))
+			  	(if (null? v) ;; didn't find var
+			  		(cons (car exp) 
+			  			  (__macroexpand-iter (cdr exp) arg-list))
+					(cons (cadr v)
+						  (__macroexpand-iter (cdr exp) arg-list))
+					)
+			  	)
+			  ((number? (car exp))
+			  	(cons (car exp)
+			  		  (__macroexpand-iter (cdr exp) arg-list)))
+			  ((pair? (car exp))
+			  	(cond ((eq? (caar exp) 'quote) ;; continue
+			  		  (__macroexpand-iter (cdr exp) arg-list))
+			  		  ((eq? (caar exp) 'quasiquote)
+			  		  	(cons (quasiquote-for-macroexpand (cdar exp) arg-list)
+			  		  		  (__macroexpand-iter (cdr exp) arg-list)))	
+			  		  (else
+			  		  	(cons (__macroexpand-iter (car exp) arg-list)
+			  		  		  (__macroexpand-iter (cdr exp) arg-list))
+			  		  	)
+			  		))
+			   (else (error "If u see this message, then it means there is some problem with macroexpand"))
+			)
+		))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

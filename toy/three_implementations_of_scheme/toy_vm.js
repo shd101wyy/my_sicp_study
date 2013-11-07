@@ -602,7 +602,7 @@ var _pair$ = function(stack_param)
 {
     checkParam(stack_param, 1);
     var v = stack_param[0];
-    return v.TYPE === LIST ? build_true() : build_false();
+    return v.TYPE === LIST && v.NULL===false ? build_true() : build_false(); // '() is not pair
 }
 var _atom$ = function(stack_param)
 {
@@ -2805,11 +2805,107 @@ var VM = function(instructions, environment, acc, pc, stack)
 }
 
 
+/*
+    Interpreter
+*/
 
+/*
+    =========================
+    === Compiler ============
+    =========================
+*/
+var interpreter = function(exps)
+{
+    var symbol_table = Build_Symbol_Table(); // init symbol table
+    var instructions = make_instructions(); // init instructions
+    
+    var acc = [];     // init acc
+    var pc = 0;       // init pc
+    var stack = [];   // init stack
+    var environment = Build_Environment();
+    while(!null$(exps))
+    {
+        var exp = car(exps); // get current exp
 
+        pc = instructions_length(instructions); // save currnet pc
+        interpreter_(exp, symbol_table, instructions, environment, acc, pc, stack) // interpreter and compile code
 
+        acc = VM(instructions, environment, acc, pc, stack); // run instructions; update acc and stack
+        exps = cdr(exps);
+    }
+    return instructions; // return whole instructions
+}
+var interpreter_ = function(exp, symbol_table, instructions, environment, acc, pc, stack)
+{
+    /*
+        expand macro
+    */
+    var macro_expand = function(exp, instructions, environment, start_pc)
+    {
+        var args = cdr(exp); // (square 12)
+        var new_frame = [];  // create new frame for environment
+        while(!null$(args))
+        {
+            new_frame.push(car(args))
+            args = cdr(args)
+        }
+        environment.push(new_frame) // push new frame to environment
+        return VM(instructions, environment, [], start_pc, [])
+    }
+    /*
+        three situations that require runtime:
+        1. macro
+        2. eval
+        3. apply
+        4/ macroexpand
+    */
+    if(exp.TYPE === LIST && exp.NULL === false)
+    {
+        var tag = car(exp);
+        if(eq$(tag, build_atom('eval')))
+        {
+            console.log("eval");
+            var v = cadr(exp);
+            pc = instructions.length; // save pc
+            interpreter_(v, symbol_table, instructions, environment, acc, pc, stack)
+            var compiled_v = VM(instructions, environment, acc, pc, stack);
+            return interpreter_(compiled_v, symbol_table, instructions, environment, acc, pc, stack);
+        }
+        else if (eq$(tag, build_atom('apply')))
+        {
+            console.log('apply=======');
+            var applic_head = cadr(exp);
 
-
+            var applic = cadr(exp)
+            var v = caddr(exp);
+            pc = instructions.length; // save pc
+            interpreter_(v, symbol_table, instructions, environment, acc, pc, stack)
+            var compiled_args = VM(instructions, environment, acc, pc, stack);
+            return interpreter_(cons(applic, compiled_args), symbol_table, instructions, environment, acc, pc, stack)
+        }
+        else
+        {
+            // check macro
+            var n_m = symbol_table_lookup(symbol_table, tag.atom);
+            if(n_m[0]!=-1 && environment[n_m[0]][n_m[1]].TYPE === USER_MACRO) // macro
+            {
+                var macro = environment[n_m[0]][n_m[1]];
+                var expanded_value = macro_expand(exp, instructions, environment, macro.start_pc) 
+                return interpreter_(expanded_value, symbol_table, instructions, environment, acc, pc, stack)
+            }
+            else                                                              // it is not macro
+                return compiler(exp, symbol_table, instructions)
+        }
+    }
+    else
+    {
+        return compiler(exp, symbol_table, instructions);
+    }
+}
+var x = "(apply + '(3 4))"
+var y = lexer(x)
+var z = parser(y)
+interpreter(z)
 /* 
 var x = "(+ 12 13)";
 var y = lexer(x);
