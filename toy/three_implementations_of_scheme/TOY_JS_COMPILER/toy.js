@@ -630,6 +630,10 @@ var compiler = function(exp)
         	// return compile_ar(cadr(exp), caddr(exp), tag)
         	return cadr(exp)+tag+caddr(exp)
         }
+        else if (tag === "new")
+        {
+            return " new " + compiler(cadr(exp));
+        }
         else if (tag in MACRO_ENV) // macro expand
         {
         	return compiler(expand_macro(exp));
