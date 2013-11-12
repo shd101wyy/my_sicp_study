@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+var fs=require("fs")
+var toy=require("./toy.js")
+var vm=require("vm")
+var util=require("util")
+var readline = require('readline')
+var argv = process.argv
+console.log(argv)
+
+// REPL
+if (argv.length==2){
+	
+	console.log("Interactive mode");
+	console.log("Press Ctrl + C to quit\n");
+
+	var input_str=""
+
+	var rl = readline.createInterface({
+	  input: process.stdin,
+	  output: process.stdout
+	})
+
+	rl.setPrompt('toy> ')
+	rl.prompt()
+
+	rl.on('line', function(line) {
+		var l = toy.lexer(line);
+		var p = toy.parser(l);
+		var o =  toy.compile_sequence(p);
+		console.log("compile to ==> "+o);
+		console.log(vm.runInThisContext(o));
+		// toy.display( toy.TOY_Eval(line,toy.ENV_LIST,"") )
+		rl.setPrompt('toy> ')
+		rl.prompt()
+	})
+
+	rl.on('close', function() {
+	  console.log('Quit walley')
+	  process.exit(0)
+	});
+	
+}
+
+
