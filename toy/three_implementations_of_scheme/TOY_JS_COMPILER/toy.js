@@ -645,7 +645,7 @@ var compiler = function(exp)
         else // application
         {
             // check compile dictionary quick access
-            if(!cadr(exp).NULL && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword')
+            if(!cadr(exp).NULL && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword' && cdr(cadr(exp)).NULL)
             {
                 return compiler(tag)+"[\"" + cadr(cadr(exp))+"\"]"
             }
