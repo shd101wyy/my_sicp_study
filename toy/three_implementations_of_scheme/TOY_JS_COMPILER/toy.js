@@ -252,7 +252,7 @@ var parser = function(l)
        	if(check_invalid_name(l) === false && (l!=="+" && l!=="-" && l!=="*" && l!=="/" && l!=="%" && 
                                               l !== ">" && l !== "<" && l !=="<=" && l !==">=" && l !=="==" && l !== "!=" &&
                                               l !== "===" && l !== "!=="
-                                              && l!== "set!"))
+                                              && l!== "set!" && l!=="."))
        	{
        		if(l in INVALID_NAME_TABLE) return INVALID_NAME_TABLE[l];
        		else{
@@ -410,6 +410,40 @@ var compile_lambda = function(args, body)
 		if(args.cdr.NULL) return car(args);
 		return car(args) + ", " + format_lambda_arguments(cdr(args));
 	}
+    var format_lambda_variadic_arguments = function(args)
+    {
+        var output = "";
+        var i;
+        for(i = 0; i < args.length-1; i++)
+        {
+            output+= "var "+(args[i]) + " = arguments["+i+"];"; 
+        }
+        output+="var "+args[i] + " = [].slice.call(arguments, " + i +")";
+
+        return output;
+    }
+    /*
+        check varidic parameters
+    */
+    var x = args;
+    var variadic$ = false;
+    var arguments = []; // get arguments
+    while(!x.NULL)
+    {
+        if(car(x) === '.')
+        {
+            variadic$ = true;
+            arguments.push(cadr(x));
+            break;
+        }
+        else
+        {
+            arguments.push(car(x));
+        }
+        x = cdr(x);
+    }
+    if(variadic$)
+        return "function(){"+format_lambda_variadic_arguments(arguments)+";"+compile_begin(body)+"}";
    	return "function(" + format_lambda_arguments(args) +"){"+compile_begin(body)+"}";
 }
 
@@ -439,7 +473,7 @@ var compile_args = function(args)
 }
 var compile_application = function(applic, args)
 {
-    return compiler(applic)+"("+compile_args(args)+")"
+    return compiler(applic)+".apply(null, ["+compile_args(args)+"])"
 }
 
 var compile_quote_list = function(l)
