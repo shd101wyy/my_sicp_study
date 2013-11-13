@@ -251,7 +251,8 @@ var parser = function(l)
        	if(isNumber(l) || isRatio(l)) return l;
        	if(check_invalid_name(l) === false && (l!=="+" && l!=="-" && l!=="*" && l!=="/" && l!=="%" && 
                                               l !== ">" && l !== "<" && l !=="<=" && l !==">=" && l !=="==" && l !== "!=" &&
-                                              l !== "===" && l !== "!=="))
+                                              l !== "===" && l !== "!=="
+                                              && l!== "set!"))
        	{
        		if(l in INVALID_NAME_TABLE) return INVALID_NAME_TABLE[l];
        		else{
@@ -333,11 +334,25 @@ var definition_value = function(exp)
 
 var compile_define = function(var_name, var_value)
 {
-	return "var " + var_name + " = " + compiler(var_value) + ";\n";
+	return "var " + compiler(var_name) + " = " + compiler(var_value) + ";\n";
 }
+var assignment_variable = function(exp)
+{
+    var var_name = cadr(exp);
+    if(var_name.TYPE!==LIST && (isNumber(var_name) || isRatio(var_name))) {
+        console.log("Invalid var name "+exp);
+        return "undefined"
+    }
+    return cadr(exp);
+}
+var assignment_value = function(exp)
+{
+    return caddr(exp);
+}
+
 var compile_set = function(var_name, var_value)
 {
-	return var_name + " = " + compiler(var_value) + ";\n";
+	return compiler(var_name) + " = " + compiler(var_value) + ";\n";
 }
 /* Compile if */
 var if_test = function(exp)
@@ -596,7 +611,7 @@ var compiler = function(exp)
         {
             return '"'+cadr(exp)+'"'
         }
-        else if (tag === "define")
+        else if (tag === "def")
         {
             if(cadr(exp).TYPE === LIST)
                 return compiler(make_lambda(exp));
@@ -605,10 +620,11 @@ var compiler = function(exp)
         }   
         else if (tag === "set!")
         {
-            if(cadr(exp).TYPE === LIST)
-                return compiler(make_lambda(exp));
-            return compile_set(definition_variable(exp),
-                    definition_value(exp));
+            // delete following line in order to support (set! (x :a) 12) like change dictionary
+            // if(cadr(exp).TYPE === LIST)
+            //    return compiler(make_lambda(exp));
+            return compile_set(assignment_variable(exp),
+                    assignment_value(exp));
         }
 	    else if (tag === "if")
         {
