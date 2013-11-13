@@ -4,6 +4,7 @@
 
 */
 var LIST = 2;
+var MACRO = 4;
 // build nil
 var Nil = function()
 {
@@ -35,6 +36,11 @@ var cons = function(x, y)
 var build_nil = function()
 {
    return new Nil();
+}
+var Macro = function(arg_list, pattern_list)
+{
+    this.arg_list = arg_list;
+    this.pattern_list = pattern_list;
 }
 /*
     check whether string is number
@@ -243,7 +249,9 @@ var parser = function(l)
        		return cons("keyword", cons(l.slice(1), build_nil()))
         if(l[0]=='"') return l;
        	if(isNumber(l) || isRatio(l)) return l;
-       	if(check_invalid_name(l) === false && (l!=="+" && l!=="-" && l!=="*" && l!=="/" && l!=="%"))
+       	if(check_invalid_name(l) === false && (l!=="+" && l!=="-" && l!=="*" && l!=="/" && l!=="%" && 
+                                              l !== ">" && l !== "<" && l !=="<=" && l !==">=" && l !=="==" && l !== "!=" &&
+                                              l !== "===" && l !== "!=="))
        	{
        		if(l in INVALID_NAME_TABLE) return INVALID_NAME_TABLE[l];
        		else{
@@ -617,6 +625,11 @@ var compiler = function(exp)
             return compile_lambda(lambda_arguments(exp),
                         lambda_body(exp));
         }
+        /*
+            (defmacro define (var_ val_) @(define ,var_ ,val_) 
+                        ((var_ ...) statement1 ...) @(define ,var_ (lambda (...) statement1 ...))
+                         )
+        */
         else if (tag === "defmacro")
         {
             return compile_macro(cdr(exp));
@@ -629,14 +642,22 @@ var compiler = function(exp)
         {
         	return compile_dictionary(cdr(exp));
         }
-        else if (tag === "+" || tag === "-" || tag === "*" || tag === "/" || tag === "%")
+        else if (tag === "+" || tag === "-" || tag === "*" || tag === "/" || tag === "%"
+                || tag === ">" || tag === "<" || tag ==="<=" || tag ===">=" || tag ==="==" || tag === "!="
+                || tag === "===" || tag === "!==")
         {
+            if(tag === "==") tag = "==="
+            if(tag === "!=") tag = "!=="
         	// return compile_ar(cadr(exp), caddr(exp), tag)
-        	return cadr(exp)+tag+caddr(exp)
+        	return compiler(cadr(exp))+tag+compiler(caddr(exp))
         }
         else if (tag === "new")
         {
             return " new " + compiler(cadr(exp));
+        }
+        else if (tag === "ref")
+        {
+            return compiler(cadr(exp))+"[" + compiler(caddr(exp))+"]"
         }
         else if (tag in MACRO_ENV) // macro expand
         {
@@ -645,7 +666,12 @@ var compiler = function(exp)
         else // application
         {
             // check compile dictionary quick access
-            if(!cadr(exp).NULL && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword' && cdr(cadr(exp)).NULL)
+            /*
+                (x :a) means access key value from x
+                (x :a :b) means call function, not key access
+                if meet "keyword" and only one exist, then it's key access
+            */
+            if(cdr(exp).NULL === false && !cadr(exp).NULL && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword' && cddr(exp).NULL)
             {
                 return compiler(tag)+"[\"" + cadr(cadr(exp))+"\"]"
             }
