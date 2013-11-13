@@ -240,7 +240,7 @@ var parser = function(l)
             return build_atom(l);
         	*/
         if(l[0]==":")
-       		return cons("quote", cons(l.slice(1), build_nil()))
+       		return cons("keyword", cons(l.slice(1), build_nil()))
         if(l[0]=='"') return l;
        	if(isNumber(l) || isRatio(l)) return l;
        	if(check_invalid_name(l) === false && (l!=="+" && l!=="-" && l!=="*" && l!=="/" && l!=="%"))
@@ -416,7 +416,7 @@ var compile_args = function(args)
 }
 var compile_application = function(applic, args)
 {
-    return applic+"("+compile_args(args)+")"
+    return compiler(applic)+"("+compile_args(args)+")"
 }
 
 var compile_quote_list = function(l)
@@ -584,6 +584,10 @@ var compiler = function(exp)
 			else if (isRatio(cadr(exp))) return "makeRatio("+getNumerator(cadr(exp))+','+getDenominator(cadr(exp))+")"
 			else return '"'+cadr(exp)+'"';
 		}
+        else if (tag === "keyword")
+        {
+            return '"'+cadr(exp)+'"'
+        }
         else if (tag === "define")
         {
             if(cadr(exp).TYPE === LIST)
@@ -640,6 +644,11 @@ var compiler = function(exp)
         }
         else // application
         {
+            // check compile dictionary quick access
+            if(!cadr(exp).NULL && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword')
+            {
+                return compiler(tag)+"[\"" + cadr(cadr(exp))+"\"]"
+            }
             return compile_application(application_head(exp),
                             application_args(exp))
         }
