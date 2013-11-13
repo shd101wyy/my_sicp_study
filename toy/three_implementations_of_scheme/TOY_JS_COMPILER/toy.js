@@ -386,7 +386,7 @@ var compile_begin = function(exps)
 	if(exps.NULL) return "";
 	else if (exps.cdr.NULL) 
 		return "return " + compiler(car(exps))+";"
-	return compiler(car(exps))+compile_begin(cdr(exps));
+	return compiler(car(exps))+"; \n"+compile_begin(cdr(exps));
 }
 
 /*
@@ -419,7 +419,6 @@ var compile_lambda = function(args, body)
             output+= "var "+(args[i]) + " = arguments["+i+"];"; 
         }
         output+="var "+args[i] + " = [].slice.call(arguments, " + i +")";
-
         return output;
     }
     /*
@@ -473,7 +472,8 @@ var compile_args = function(args)
 }
 var compile_application = function(applic, args)
 {
-    return compiler(applic)+".apply(null, ["+compile_args(args)+"])"
+    // return compiler(applic)+".apply(null, ["+compile_args(args)+"])"
+    return compiler(applic)+"(" +compile_args(args)+")";
 }
 
 var compile_quote_list = function(l)
@@ -609,6 +609,36 @@ var compile_dictionary = function(args)
 	output+=key+":"+val+"}";
 	return output;
 }
+var compile_let = function(assignments, body)
+{
+    var output = "(function(){";
+    while(!assignments.NULL)
+    {
+        var var_name = caar(assignments);
+        var var_value = cadar(assignments);
+        output += "var " + compiler(var_name) + " = " + compiler(var_value) + ";"
+        assignments = assignments.cdr;
+    }
+    output+=compile_begin(body);
+    output+="})()";
+    return output;
+}
+var compile_cond = function(clauses)
+{
+    if(clauses.cdr.NULL) // last statements
+    {
+        var test = caar(clauses);
+        var body = cdr(car(clauses))
+        if(test ==="else") test = "1";
+        return "(function(){if("+compiler(test)+"){"+compile_begin(body)+"}else{return null;}})()"
+    }
+    else
+    {
+        var test = caar(clauses);
+        var body = cdr(car(clauses));
+        return "(function(){if("+compiler(test)+"){"+compile_begin(body)+"}else{return "+ compile_cond(cdr(clauses)) +"}})()"
+    }
+}
 /* math */
 var compile_ar = function(arg1, arg2, op)
 {
@@ -618,6 +648,9 @@ var compile_ar = function(arg1, arg2, op)
 	if(op === "/") return "toy_div$(" + compiler(arg1) + ", " +compiler(arg2) + ")";
 	if(op === "%") return "toy_rem$(" + compiler(arg1) + ", " +compiler(arg2) + ")";
 }
+var VARIADIC_FLAG = 1;
+var MACRO_FLAG = 2;
+var COMPILATION_ENVIRONMENT = [{}];
 /* compile toy to javascript */
 var compiler = function(exp)
 {
@@ -709,6 +742,12 @@ var compiler = function(exp)
         {
             return compiler(cadr(exp))+"[" + compiler(caddr(exp))+"]"
         }
+        else if (tag === "let")
+        {
+            return compile_let(cadr(exp), cddr(exp));
+        }
+        else if (tag === "cond")
+            return compile_cond(cdr(exp));
         else if (tag in MACRO_ENV) // macro expand
         {
         	return compiler(expand_macro(exp));
