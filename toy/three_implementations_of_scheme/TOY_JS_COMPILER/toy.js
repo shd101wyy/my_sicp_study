@@ -472,8 +472,8 @@ var compile_args = function(args)
 }
 var compile_application = function(applic, args)
 {
-    // return compiler(applic)+".apply(null, ["+compile_args(args)+"])"
-    return compiler(applic)+"(" +compile_args(args)+")";
+    return compiler(applic)+".apply(null, ["+compile_args(args)+"])"
+    // return compiler(applic)+"(" +compile_args(args)+")";
 }
 
 var compile_quote_list = function(l)
@@ -736,7 +736,7 @@ var compiler = function(exp)
         }
         else if (tag === "new")
         {
-            return " new " + compiler(cadr(exp));
+            return /*" new " +*/ compiler(cadr(exp));
         }
         else if (tag === "ref")
         {
