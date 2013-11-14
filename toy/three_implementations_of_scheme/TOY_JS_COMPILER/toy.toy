@@ -1,0 +1,14 @@
+(def (list . args)
+	(def (list-iter args count)
+		(cond ((eq? count (args :length))
+				'())
+			  (else 
+			  	(cons (ref args count) 
+			  		  (list-iter args (+ count 1))))
+		))
+	(list-iter args 0))
+
+(def (cons a b) {:car a :cdr b :TYPE 'list})
+(def (car a) (a :car))
+(def (cdr b) (a :cdr))
+(def (list . args)(def (list-iter args count)(cond ((eq? count (args :length))'())(else (cons (ref args count) (list-iter args (+ count 1))))))(list-iter args 0))

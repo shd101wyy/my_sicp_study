@@ -547,7 +547,7 @@ var compile_macro = function(exp)
 {
     var macro_name = car(exp);
     var macro_args = cadr(exp);
-    var macro_body = caddr(exp);
+    var macro_body = cddr(exp);
     if(macro_body === null)
     {
         console.log("ERROR: invalid macro body");
@@ -607,7 +607,7 @@ var expand_macro = function(exp)
     var macro_args = MACRO_ENV[macro_name][0];
 
     var eval_string = "";
-    while(!macro_args === null)
+    while(macro_args !== null)
     {
         var var_name = car(macro_args);
         var var_value = car(macro_param);
@@ -618,7 +618,6 @@ var expand_macro = function(exp)
     }
     eval_string+=macro_body;
     eval_string = "(function(){" + eval_string +"})()";
-    console.log(eval_string)
     return eval(eval_string);
 }
 /* vector */
@@ -626,7 +625,7 @@ var compile_vector = function(args)
 {
 	if(args === null) return "[]";
 	var output = "[";
-	while(!(cdr(args).NULL))
+	while(!(cdr(args) === null))
 	{
 		output+=compiler(car(args))+", "
 		args = cdr(args);
@@ -641,7 +640,7 @@ var compile_dictionary = function(args)
 	var output = "{";
 	var key;
 	var val;
-	while(!(cdr(cdr(args)).NULL))
+	while(!(cdr(cdr(args)) === null))
 	{
 		key = compiler(car(args));
 		val = compiler(cadr(args));
@@ -700,13 +699,15 @@ var COMPILATION_ENVIRONMENT = [{}];
 /* compile toy to javascript */
 var compiler = function(exp)
 {
+    if(typeof(exp) === 'number')
+        return;
 	if(typeof(exp) === 'string')
 	{
 		// check ratio
 		if(isRatio(exp)) return "makeRatio("+getNumerator(exp)+','+getDenominator(exp)+")" // return make ratio
 		return exp; // return itself
 	}
-	else
+	else if (exp.TYPE === LIST)
 	{
 		var tag = car(exp);
 		if(tag === 'quote' /*|| tag === 'quasiquote'*/)
@@ -808,7 +809,7 @@ var compiler = function(exp)
                 (x :a :b) means call function, not key access
                 if meet "keyword" and only one exist, then it's key access
             */
-            if(cdr(exp).NULL === false && !cadr(exp).NULL && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword' && cddr(exp).NULL)
+            if(cdr(exp)!==null && cadr(exp)!==null && cadr(exp).TYPE === LIST && car(cadr(exp)) === 'keyword' && cddr(exp)===null)
             {
                 return compiler(tag)+"[\"" + cadr(cadr(exp))+"\"]"
             }
@@ -816,6 +817,8 @@ var compiler = function(exp)
                             application_args(exp))
         }
 	}
+    else 
+        return exp;
 }
 var op_table  = {
     "+":"toy_add$", "-":"toy_sub$", "*":"toy_mul$", "/":"toy_div$", "%":"toy_rem",
@@ -863,6 +866,44 @@ if (typeof(module)!="undefined"){
     module.exports.parser = parser ;
     module.exports.compile_sequence = compile_sequence;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
