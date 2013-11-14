@@ -29,6 +29,18 @@ var Cons = function(x, y)
     this.NULL = false   // for virtual machine check
     this.TYPE = LIST  // for virtual machien check
 }
+// build procedure
+var Procedure = function(start_pc, env)
+{
+    this.start_pc = start_pc;
+    this.closure_env = env;
+}
+// build macro
+var Macro = function(start_pc, env)
+{
+    this.start_pc = start_pc;
+    this.closure_env = env;
+}
 var cons = function(x, y)
 {
     return new Cons(x,y);
@@ -36,11 +48,6 @@ var cons = function(x, y)
 var build_nil = function()
 {
    return new Nil();
-}
-var Macro = function(arg_list, pattern_list)
-{
-    this.arg_list = arg_list;
-    this.pattern_list = pattern_list;
 }
 /*
     check whether string is number
@@ -827,11 +834,11 @@ var ARGUMENT = 7; // push argument
 var CALL = 8;     // call 
 var TEST = 9; // test jmp
 var JMP = 10; // jmp jump steps
-var lookup_env = function(symbol_table, var_name, instructions)
+var lookup_env = function(env, var_name, instructions)
 {
-    for(var i = symbol_table.length-1; i>=0; i--)
+    for(var i = env.length-1; i>=0; i--)
     {
-        if(var_name in symbol_table[i])
+        if(var_name in env[i])
         {
             instructions.push([REF, var_name, i]);
             return;
@@ -840,38 +847,38 @@ var lookup_env = function(symbol_table, var_name, instructions)
     console.log("Cannot find var : "+var_name);
     return;
 }
-var another_compiler_lambda = function(args, body, symbol_table, instructions)
+var another_compiler_lambda = function(args, body, env, instructions)
 {
     // begin closure
     var index = instructions.length;
     instructions.push([CLOSURE, 0, 0]);
 
-    symbol_table.push({});
+    env.push({});
     // add args
     while(!args.NULL)
     {
-        symbol_table[symbol_table.length - 1][car(args)] = true;
+        env[env.length - 1][car(args)] = true;
         args = cdr(args);
     }
-    another_compiler_seq(body, symbol_table, instructions);
+    another_compiler_seq(body, env, instructions);
     // add return
     instructions.push([RETURN, 0, 0]);
     instructions[index][1] = instructions.length - 1; // set return index
     return;
 }
-var another_compiler_applic = function(head, params, symbol_table, instructions)
+var another_compiler_applic = function(head, params, env, instructions)
 {
     instructions.push([FRAME, 0, 0]);
     // compile parameters
     while(!params.NULL)
     {
         var v = car(params);
-        another_compiler(v, symbol_table, instructions);
+        another_compiler(v, env, instructions);
         instructions.push([ARGUMENT, 0, 0]);
         params = cdr(params);
     }
     // compile head
-    another_compiler(head, symbol_table, instructions);
+    another_compiler(head, env, instructions);
     instructions.push([CALL, 0, 0]);// call procedure
     return;
 }
@@ -884,32 +891,143 @@ var another_compiler_applic = function(head, params, symbol_table, instructions)
     CONSTANT 3
 
 */
-var another_compiler_if = function(test, consequent, alternative, symbol_table, instructions)
+var another_compiler_if = function(test, consequent, alternative, env, instructions)
 {
     var index1 = 0;
     instructions.push([TEST, 0, 0]);
     // compile consequent
-    another_compiler(consequent, symbol_table, instructions);
+    another_compiler(consequent, env, instructions);
 
     var index2 = instructions.length; 
     instructions.push([JMP, 0, 0]);
     // compile alternative
-    another_compiler(alternative, symbol_table, instructions);
+    another_compiler(alternative, env, instructions);
     instructions[index2][1] = instructions.length - index2;
     instructions[index1][1] = index2+1;
     return;
 }
-var another_compiler_seq = function(exps, symbol_table, instructions)
+var another_compiler_seq = function(exps, env, instructions)
 {
     if(exps.NULL)
         return instructions;
     else
     {
-        another_compiler(car(exps), symbol_table, instructions);
-        return another_compiler_seq(cdr(exps), symbol_table, instructions);
+        another_compiler(car(exps), env, instructions);
+        return another_compiler_seq(cdr(exps), env, instructions);
     }
 }
-var another_compiler = function(exp, symbol_table, instructions)
+/*
+    Compile list
+    without calculation
+*/
+var compile_list = function(exp, env, instructions)
+{
+    instructions.push([FRAME, 0, 0]);
+    var compile_list_iter = function(exp, env, instructions)
+    {
+        if(exp.NULL)
+        {
+            instructions.push([REF, 'list', 0]); // refer list procedure
+            instructions.push([CALL, 0, 0]); // call list procedure
+        }
+        else
+        {
+            var v = car(exp);
+            if(v.TYPE === LIST)
+            {
+                compile_list(v, env, instructions);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            /*
+            else if (v.TYPE === INTEGER)
+            {
+                instructions.push([CONSTANT, v.numer, 1]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            else if (v.TYPE === FLOAT)
+            {
+                instructions.push([CONSTANT, v.numer, 2]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            else if (v.TYPE === RATIO)
+            {
+                instructions.push([RATIO, v.numer, v.denom]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }*/
+            else
+            {
+                if(v[0]==='"')
+                    instructions.push([CONSTANT, v, 3]);
+                else
+                    instructions.push([CONSTANT, v, 0]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            return compile_list_iter(cdr(exp), env, instructions);
+        }
+    }
+    return compile_list_iter(exp, env, instructions);
+}
+/*
+    Compile list
+    with calculation
+*/
+var compile_quasiquote_list = function(exp, env, instructions)
+{
+    instructions.push([FRAME, 0, 0]);
+    var compile_quasiquote_list_iter = function(exp, env, instructions)
+    {
+        if(exp.NULL)
+        {
+            instructions.push([REF, 'list', 0]); // refer list procedure
+            instructions.push([CALL, 0, 0]); // call list procedure
+           }
+        else
+        {
+            var v = car(exp);
+            if(v.TYPE === LIST)
+            {
+                if(car(v) === build_atom("unquote"))
+                {                    
+                    another_compiler(cadr(v), env, instructions)
+                    instructions.push([ARGUMENT, 0, 0]);
+                }
+                else
+                {
+                    compile_quasiquote_list(v, env, instructions);
+                    instructions.push([ARGUMENT, 0, 0]);
+                }
+            }
+            /*
+            else if (v.TYPE === INTEGER)
+            {
+                instructions.push([CONSTANT, v.numer, 1]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            else if (v.TYPE === FLOAT)
+            {
+                instructions.push([CONSTANT, v.numer, 2]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            else if (v.TYPE === RATIO)
+            {
+                instructions.push([RATIO, v.numer, v.denom]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }*/
+            else
+            {
+                if(v[0]==='"')
+                    instructions.push([CONSTANT, v, 3]);
+                else
+                    instructions.push([CONSTANT, v, 0]);
+                instructions.push([ARGUMENT, 0, 0]);
+            }
+            return compile_quasiquote_list_iter(cdr(exp), env, instructions);
+        }
+    }
+    return compile_quasiquote_list_iter(exp, env, instructions);
+}
+
+var another_compiler = function(exp, env, instructions)
 {
     if (isNumber(exp))     // number
     {
@@ -917,34 +1035,45 @@ var another_compiler = function(exp, symbol_table, instructions)
         return;
     }
     else if(typeof(exp) === 'string') // string
-        return lookup_env(symbol_table, exp, instructions);
+        return lookup_env(env, exp, instructions);
     else // lisp
     {
         var tag = car(exp);
         if(tag === "quote")
         {
             var v = cadr(exp);
+            if(v.TYPE === LIST)
+            {
+                if(tag === "quasiquote")
+                     return compile_quasiquote_list(cadr(exp), env, instructions);
+                return compile_list(cadr(exp), env, instructions);
+            }   
+            else
+            {
+                instructions.push([CONSTANT, v, 0]);
+                return;
+            }
         }
         else if (tag === "define")
         {
             if(cadr(exp).TYPE === LIST)
-                return another_compiler(make_lambda(exp), symbol_table, instructions);
+                return another_compiler(make_lambda(exp), env, instructions);
             var var_name = cadr(exp);
             var var_value = caddr(exp);
-            another_compiler(var_value, symbol_table, instructions);
-            instructions.push([ASSIGN, var_name, symbol_table.length - 1]) // push instructions
-            symbol_table[symbol_table.length - 1][var_name] = true; // add var name to symbol table
+            another_compiler(var_value, env, instructions);
+            instructions.push([ASSIGN, var_name, env.length - 1]) // push instructions
+            env[env.length - 1][var_name] = true; // add var name to symbol table
             return;
         }
         else if (tag === "set!")
         {
             var var_name = cadr(exp);
             var var_value = caddr(exp);
-            another_compiler(var_value, symbol_table, instructions); // compile var value
+            another_compiler(var_value, env, instructions); // compile var value
             /* check var_name in symbol table */
-            for(var i = symbol_table.length - 1; i>=0; i--)
+            for(var i = env.length - 1; i>=0; i--)
             {
-                if(var_name in symbol_table[i])
+                if(var_name in env[i])
                 {
                     instructions.push([ASSIGN, var_name, i])
                     return;
@@ -955,15 +1084,15 @@ var another_compiler = function(exp, symbol_table, instructions)
         }
         else if (tag === "if")
         {
-            return another_compiler_if(if_test(exp), if_consequent(exp), if_alternative(exp), symbol_table, instructions);
+            return another_compiler_if(if_test(exp), if_consequent(exp), if_alternative(exp), env, instructions);
         }
         else if (tag === "lambda")
         {
-            return another_compiler_lambda(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
+            return another_compiler_lambda(lambda_arguments(exp), lambda_body(exp), env.slice(0), instructions);
         }
         else
         {
-            return another_compiler_applic(application_head(exp), application_args(exp), symbol_table.slice(0), instructions);
+            return another_compiler_applic(application_head(exp), application_args(exp), env.slice(0), instructions);
         }
     }
 }
@@ -990,7 +1119,11 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     }
     else if (op === CLOSURE)
     {
-        var v = ["closure", pc+1, env.slice(0)]; // make closure... temp
+        var v;
+        if(arg0 === 0)
+            v =  new Procedure(pc+1, env.slice(0)); // make closure... temp
+        else
+            v =  new Macro(pc+1, env.slice(0)); // make macro
         return another_interpreter(insts, env, v, stack, arg0); // jmp
     }
     else if (op === FRAME) // add frame
@@ -1005,7 +1138,7 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     }
     else if (op === CALL)
     {
-        var v = another_interpreter(insts, acc[2], null, stack, acc[1]);
+        var v = another_interpreter(insts, acc.closure_env, null, stack, acc.start_pc);
         // pop frame
         stack.pop();
         return another_interpreter(insts, env, v, stack, pc+1);
@@ -1071,14 +1204,14 @@ if (typeof(module)!="undefined"){
 
 
 var instructions = [];
-var symbol_table = [{
-    "+":true, "-":true, "*":true, "/":true
+var env = [{
+    "+":true, "-":true, "*":true, "/":true, "list":true,
 }]
 
-var x = "(define (add a b) (+ a b) ) (add 3 4)"
+var x = "(define x (quote (1 2 3)))"
 var l = lexer(x);
 var p = parser(l);
-var o = another_compiler_seq(p, symbol_table, instructions);
+var o = another_compiler_seq(p, env, instructions);
 displayInsts(instructions);
 
 
