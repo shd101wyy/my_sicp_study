@@ -882,7 +882,7 @@ var another_compiler_macro = function(args, body, symbol_table, instructions)
 {
     // begin closure
     var index = instructions.length;
-    instructions.push([CLOSURE, 1, 0]);
+    instructions.push([CLOSURE, 0, 1]);
 
     symbol_table.push({});
     // add args
@@ -1099,11 +1099,11 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     else if (op === CLOSURE)
     {
         var v;
-        if(arg0 === 1)
+        if(arg1 === 1)
             v = new Macro(pc+1, env.slice(0)); // macro
         else 
             v =  new Procedure(pc+1, env.slice(0)); // make closure... temp
-        return another_interpreter(insts, env, v, stack, arg0); // jmp
+        return another_interpreter(insts, env, v, stack, arg0+1); // jmp
     }
     else if (op === FRAME) // add frame
     {
@@ -1122,10 +1122,13 @@ var another_interpreter = function(insts, env, acc, stack, pc)
             var v = acc.func(stack.pop());
             return another_interpreter(insts, env, v, stack, pc+1);
         }
-        var closure_env = acc.closure_env.slice(0);
-        closure_env.push(stack.pop()); // push temp frame
-        var v = another_interpreter(insts, closure_env, null, stack, acc.start_pc);
-        return another_interpreter(insts, env, v, stack, pc+1);
+        else
+        {
+            var closure_env = acc.closure_env.slice(0);
+            closure_env.push(stack.pop()); // push temp frame
+            var v = another_interpreter(insts, closure_env, null, stack, acc.start_pc);
+            return another_interpreter(insts, env, v, stack, pc+1);
+        }
     }
     else if (op === TEST)
     {
@@ -1207,6 +1210,9 @@ if (typeof(module)!="undefined"){
 var display_ = new Builtin_Primitive_Procedure(function(stack_param){
     console.log(stack_param[0]);
 })
+var add_ = new Builtin_Primitive_Procedure(function(stack_param){
+    return stack_param[0] + stack_param[1];
+})
 
 
 var INSTRUCTIONS = [];
@@ -1216,13 +1222,13 @@ var SYMBOL_TABLE = [{
 }, // first layer for primitive builtin procedure
 {}]
 var ENVIRONMENT = [
-    [0,0,0,0,0,0,0,0,0,0,0,display_],
+    [add_,0,0,0,0,0,0,0,0,0,0,display_],
     []
 ]
 var STACK = []
 
 
-var x = "(define x 12) (display x)"
+var x = "(define (add a b) (+ a b)) (add 3 4)"
 var l = lexer(x);
 var p = parser(l);
 var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
