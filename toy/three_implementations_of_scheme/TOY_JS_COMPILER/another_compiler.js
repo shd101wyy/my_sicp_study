@@ -931,7 +931,8 @@ var lookup_env = function(symbol_table, var_name, instructions)
     {
         if(var_name in symbol_table[i])
         {
-            instructions.push([REF, symbol_table[i][var_name], i]);
+            instructions.push([REF, var_name, i]);
+            // instructions.push([REF, symbol_table[i][var_name], i]);
             return;
         }
     }
@@ -1091,8 +1092,10 @@ var another_compiler = function(exp, symbol_table, instructions)
             var var_name = cadr(exp);
             var var_value = caddr(exp);
             another_compiler(var_value, symbol_table, instructions);
-            symbol_table[symbol_table.length - 1][var_name] = Object.keys(symbol_table[symbol_table.length - 1]).length; // add var name to symbol table
-            instructions.push([ASSIGN, symbol_table[symbol_table.length - 1][var_name], symbol_table.length - 1]) // push instructions
+            //symbol_table[symbol_table.length - 1][var_name] = Object.keys(symbol_table[symbol_table.length - 1]).length; // add var name to symbol table
+            //instructions.push([ASSIGN, symbol_table[symbol_table.length - 1][var_name], symbol_table.length - 1]) // push instructions
+            symbol_table[symbol_table.length - 1][var_name] = undefined;
+            instructions.push([ASSIGN, var_name, symbol_table.length - 1]) 
             return;
         }
         else if (tag === "set!")
@@ -1125,6 +1128,7 @@ var another_compiler = function(exp, symbol_table, instructions)
         {
             return another_compiler_macro(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
         }
+        /*
         else if (tag in ENVIRONMENT[0] && ENVIRONMENT[0][tag].TYPE === MACRO)
         {
             var closure_env = ENVIRONMENT[tag].closure_env;
@@ -1143,7 +1147,7 @@ var another_compiler = function(exp, symbol_table, instructions)
             var compiled_result = another_interpreter(insts, new_env, null, [], start_pc);
             // then compile again
             return another_compiler(compiled_result, symbol_table, instructions);
-        }
+        } */
         else if (tag === "begin")
         {
             return compile_begin(cdr(exp), symbol_table, instructions);
@@ -1295,6 +1299,7 @@ var add_ = new Builtin_Primitive_Procedure(function(stack_param){
 
 
 var INSTRUCTIONS = [];
+/*
 var SYMBOL_TABLE = [{
     "+":0, "-":1, "*":2, "/":3, "list":4, "vector":5, "dictionary":6, "keyword":7, "cons":8, "car":9, "cdr":10,
     "display":11, 
@@ -1303,18 +1308,25 @@ var SYMBOL_TABLE = [{
 var ENVIRONMENT = [
     [add_,0,0,0,0,0,0,0,0,0,0,display_],
     []
-]
+]*/
 var STACK = []
+
+var ENVIRONMENT = 
+[{"+":add_, "-":undefined, "*":undefined, "/":undefined, "list":undefined, "vector":undefined, "dictionary":undefined, "keyword":undefined,
+  "cons":undefined, "car":undefined, "cdr":undefined},
+ {}]
+
 
 
 var x = "(define (add a b) (+ a b)) (add 3 4)"
 var l = lexer(x);
 var p = parser(l);
-var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
+// var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
+var o = another_compiler_seq(p, ENVIRONMENT, INSTRUCTIONS);
 displayInsts(INSTRUCTIONS);
 
-var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
-console.log(x)
+// var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
+// console.log(x)
 
 
 
