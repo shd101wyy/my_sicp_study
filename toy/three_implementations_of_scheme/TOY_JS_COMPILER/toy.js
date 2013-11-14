@@ -5,6 +5,9 @@
 */
 var LIST = 2;
 var MACRO = 4;
+var PROCEDURE = 6;
+var BUILTIN_PRIMITIVE_PROCEDURE = 8;
+
 // build nil
 var Nil = function()
 {
@@ -34,12 +37,20 @@ var Procedure = function(start_pc, env)
 {
     this.start_pc = start_pc;
     this.closure_env = env;
+    this.TYPE = PROCEDURE;
 }
 // build macro
 var Macro = function(start_pc, env)
 {
     this.start_pc = start_pc;
     this.closure_env = env;
+    this.TYPE = MACRO;
+}
+// build primitive builtin procedure
+var Builtin_Primitive_Procedure = function(func)
+{
+    this.func = func;
+    this.TYPE = BUILTIN_PRIMITIVE_PROCEDURE;
 }
 var cons = function(x, y)
 {
@@ -834,51 +845,71 @@ var ARGUMENT = 7; // push argument
 var CALL = 8;     // call 
 var TEST = 9; // test jmp
 var JMP = 10; // jmp jump steps
-var lookup_env = function(env, var_name, instructions)
+var NIL = 11;
+var lookup_env = function(symbol_table, var_name, instructions)
 {
-    for(var i = env.length-1; i>=0; i--)
+    for(var i = symbol_table.length-1; i>=0; i--)
     {
-        if(var_name in env[i])
+        if(var_name in symbol_table[i])
         {
-            instructions.push([REF, var_name, i]);
+            instructions.push([REF, symbol_table[i][var_name], i]);
             return;
         }
     }
     console.log("Cannot find var : "+var_name);
     return;
 }
-var another_compiler_lambda = function(args, body, env, instructions)
+var another_compiler_lambda = function(args, body, symbol_table, instructions)
 {
     // begin closure
     var index = instructions.length;
     instructions.push([CLOSURE, 0, 0]);
 
-    env.push({});
+    symbol_table.push({});
     // add args
     while(!args.NULL)
     {
-        env[env.length - 1][car(args)] = true;
+        symbol_table[symbol_table.length - 1][car(args)] = Object.keys(symbol_table[symbol_table.length - 1]).length;
         args = cdr(args);
     }
-    another_compiler_seq(body, env, instructions);
+    another_compiler_seq(body, symbol_table, instructions);
     // add return
     instructions.push([RETURN, 0, 0]);
     instructions[index][1] = instructions.length - 1; // set return index
     return;
 }
-var another_compiler_applic = function(head, params, env, instructions)
+var another_compiler_macro = function(args, body, symbol_table, instructions)
+{
+    // begin closure
+    var index = instructions.length;
+    instructions.push([CLOSURE, 1, 0]);
+
+    symbol_table.push({});
+    // add args
+    while(!args.NULL)
+    {
+        symbol_table[symbol_table.length - 1][car(args)] = true;
+        args = cdr(args);
+    }
+    another_compiler_seq(body, symbol_table, instructions);
+    // add return
+    instructions.push([RETURN, 0, 0]);
+    instructions[index][1] = instructions.length - 1; // set return index
+    return;
+}
+var another_compiler_applic = function(head, params, symbol_table, instructions)
 {
     instructions.push([FRAME, 0, 0]);
     // compile parameters
     while(!params.NULL)
     {
         var v = car(params);
-        another_compiler(v, env, instructions);
+        another_compiler(v, symbol_table, instructions);
         instructions.push([ARGUMENT, 0, 0]);
         params = cdr(params);
     }
     // compile head
-    another_compiler(head, env, instructions);
+    another_compiler(head, symbol_table, instructions);
     instructions.push([CALL, 0, 0]);// call procedure
     return;
 }
@@ -891,143 +922,60 @@ var another_compiler_applic = function(head, params, env, instructions)
     CONSTANT 3
 
 */
-var another_compiler_if = function(test, consequent, alternative, env, instructions)
+var another_compiler_if = function(test, consequent, alternative, symbol_table, instructions)
 {
     var index1 = 0;
     instructions.push([TEST, 0, 0]);
     // compile consequent
-    another_compiler(consequent, env, instructions);
+    another_compiler(consequent, symbol_table, instructions);
 
     var index2 = instructions.length; 
     instructions.push([JMP, 0, 0]);
     // compile alternative
-    another_compiler(alternative, env, instructions);
+    another_compiler(alternative, symbol_table, instructions);
     instructions[index2][1] = instructions.length - index2;
     instructions[index1][1] = index2+1;
     return;
 }
-var another_compiler_seq = function(exps, env, instructions)
+var another_compiler_seq = function(exps, symbol_table, instructions)
 {
     if(exps.NULL)
         return instructions;
     else
     {
-        another_compiler(car(exps), env, instructions);
-        return another_compiler_seq(cdr(exps), env, instructions);
+        another_compiler(car(exps), symbol_table, instructions);
+        return another_compiler_seq(cdr(exps), symbol_table, instructions);
     }
 }
 /*
     Compile list
     without calculation
 */
-var compile_list = function(exp, env, instructions)
+var compile_list = function(exp, symbol_table, instructions)
 {
-    instructions.push([FRAME, 0, 0]);
-    var compile_list_iter = function(exp, env, instructions)
+    if(exp.NULL)
+        return build_nil();
+    else
     {
-        if(exp.NULL)
+        var v = car(exp);
+        if(v.TYPE === LIST)
         {
-            instructions.push([REF, 'list', 0]); // refer list procedure
-            instructions.push([CALL, 0, 0]); // call list procedure
+            return cons("cons", 
+                         cons(compile_list(v, symbol_table, instructions),
+                              cons(compile_list(cdr(exp), symbol_table, instructions), build_nil())))
         }
-        else
-        {
-            var v = car(exp);
-            if(v.TYPE === LIST)
-            {
-                compile_list(v, env, instructions);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            /*
-            else if (v.TYPE === INTEGER)
-            {
-                instructions.push([CONSTANT, v.numer, 1]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            else if (v.TYPE === FLOAT)
-            {
-                instructions.push([CONSTANT, v.numer, 2]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            else if (v.TYPE === RATIO)
-            {
-                instructions.push([RATIO, v.numer, v.denom]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }*/
-            else
-            {
-                if(v[0]==='"')
-                    instructions.push([CONSTANT, v, 3]);
-                else
-                    instructions.push([CONSTANT, v, 0]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            return compile_list_iter(cdr(exp), env, instructions);
-        }
+        else 
+            return cons("cons",
+                        cons(v, 
+                             cons(compile_list(cdr(exp), symbol_table, instructions), build_nil())))
     }
-    return compile_list_iter(exp, env, instructions);
-}
-/*
-    Compile list
-    with calculation
-*/
-var compile_quasiquote_list = function(exp, env, instructions)
-{
-    instructions.push([FRAME, 0, 0]);
-    var compile_quasiquote_list_iter = function(exp, env, instructions)
-    {
-        if(exp.NULL)
-        {
-            instructions.push([REF, 'list', 0]); // refer list procedure
-            instructions.push([CALL, 0, 0]); // call list procedure
-           }
-        else
-        {
-            var v = car(exp);
-            if(v.TYPE === LIST)
-            {
-                if(car(v) === build_atom("unquote"))
-                {                    
-                    another_compiler(cadr(v), env, instructions)
-                    instructions.push([ARGUMENT, 0, 0]);
-                }
-                else
-                {
-                    compile_quasiquote_list(v, env, instructions);
-                    instructions.push([ARGUMENT, 0, 0]);
-                }
-            }
-            /*
-            else if (v.TYPE === INTEGER)
-            {
-                instructions.push([CONSTANT, v.numer, 1]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            else if (v.TYPE === FLOAT)
-            {
-                instructions.push([CONSTANT, v.numer, 2]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            else if (v.TYPE === RATIO)
-            {
-                instructions.push([RATIO, v.numer, v.denom]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }*/
-            else
-            {
-                if(v[0]==='"')
-                    instructions.push([CONSTANT, v, 3]);
-                else
-                    instructions.push([CONSTANT, v, 0]);
-                instructions.push([ARGUMENT, 0, 0]);
-            }
-            return compile_quasiquote_list_iter(cdr(exp), env, instructions);
-        }
-    }
-    return compile_quasiquote_list_iter(exp, env, instructions);
 }
 
-var another_compiler = function(exp, env, instructions)
+/*
+    well, this symbol_table is actually symbol table
+    which stores like {a:0, b:1, c:2};
+*/
+var another_compiler = function(exp, symbol_table, instructions)
 {
     if (isNumber(exp))     // number
     {
@@ -1035,7 +983,12 @@ var another_compiler = function(exp, env, instructions)
         return;
     }
     else if(typeof(exp) === 'string') // string
-        return lookup_env(env, exp, instructions);
+        return lookup_env(symbol_table, exp, instructions);
+    else if (exp.NULL)
+    {
+        instructions.push([NIL, 0, 0]);
+        return;
+    }
     else // lisp
     {
         var tag = car(exp);
@@ -1044,9 +997,7 @@ var another_compiler = function(exp, env, instructions)
             var v = cadr(exp);
             if(v.TYPE === LIST)
             {
-                if(tag === "quasiquote")
-                     return compile_quasiquote_list(cadr(exp), env, instructions);
-                return compile_list(cadr(exp), env, instructions);
+                    return another_compiler(compile_list(cadr(exp), symbol_table, instructions), symbol_table, instructions);
             }   
             else
             {
@@ -1057,25 +1008,25 @@ var another_compiler = function(exp, env, instructions)
         else if (tag === "define")
         {
             if(cadr(exp).TYPE === LIST)
-                return another_compiler(make_lambda(exp), env, instructions);
+                return another_compiler(make_lambda(exp), symbol_table, instructions);
             var var_name = cadr(exp);
             var var_value = caddr(exp);
-            another_compiler(var_value, env, instructions);
-            instructions.push([ASSIGN, var_name, env.length - 1]) // push instructions
-            env[env.length - 1][var_name] = true; // add var name to symbol table
+            another_compiler(var_value, symbol_table, instructions);
+            symbol_table[symbol_table.length - 1][var_name] = Object.keys(symbol_table[symbol_table.length - 1]).length; // add var name to symbol table
+            instructions.push([ASSIGN, symbol_table[symbol_table.length - 1][var_name], symbol_table.length - 1]) // push instructions
             return;
         }
         else if (tag === "set!")
         {
             var var_name = cadr(exp);
             var var_value = caddr(exp);
-            another_compiler(var_value, env, instructions); // compile var value
+            another_compiler(var_value, symbol_table, instructions); // compile var value
             /* check var_name in symbol table */
-            for(var i = env.length - 1; i>=0; i--)
+            for(var i = symbol_table.length - 1; i>=0; i--)
             {
-                if(var_name in env[i])
+                if(var_name in symbol_table[i])
                 {
-                    instructions.push([ASSIGN, var_name, i])
+                    instructions.push([ASSIGN, symbol_table[i][var_name], i])
                     return;
                 }
             }
@@ -1084,15 +1035,43 @@ var another_compiler = function(exp, env, instructions)
         }
         else if (tag === "if")
         {
-            return another_compiler_if(if_test(exp), if_consequent(exp), if_alternative(exp), env, instructions);
+            return another_compiler_if(if_test(exp), if_consequent(exp), if_alternative(exp), symbol_table, instructions);
         }
         else if (tag === "lambda")
         {
-            return another_compiler_lambda(lambda_arguments(exp), lambda_body(exp), env.slice(0), instructions);
+            return another_compiler_lambda(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
+        }
+        /* (defmacro square (x) @(* ,x ,x)) */
+        else if (tag === "macro") // calculate macro
+        {
+            return another_compiler_macro(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
+        }
+        else if (tag in symbol_table[0] && symbol_table[0][tag].TYPE === MACRO)
+        {
+            var closure_env = symbol_table[0][tag].closure_env;
+            var start_pc = symbol_table[0][tag].start_pc;
+            // append params to frame
+            var frame = [];
+            var params = cdr(exp);
+            while(!params.NULL)
+            {
+                frame.push(car(params));
+                params = cdr(params);
+            }
+            var new_env = closure_env.slice(0);
+            new_env.push(frame);
+
+            var compiled_result = another_interpreter(insts, new_env, null, [], start_pc);
+            // then compile again
+            return another_compiler(compiled_result, symbol_table, instructions);
+        }
+        else if (tag === "begin")
+        {
+            return compile_begin(cdr(exp), symbol_table, instructions);
         }
         else
         {
-            return another_compiler_applic(application_head(exp), application_args(exp), env.slice(0), instructions);
+            return another_compiler_applic(application_head(exp), application_args(exp), symbol_table.slice(0), instructions);
         }
     }
 }
@@ -1120,10 +1099,10 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     else if (op === CLOSURE)
     {
         var v;
-        if(arg0 === 0)
+        if(arg0 === 1)
+            v = new Macro(pc+1, env.slice(0)); // macro
+        else 
             v =  new Procedure(pc+1, env.slice(0)); // make closure... temp
-        else
-            v =  new Macro(pc+1, env.slice(0)); // make macro
         return another_interpreter(insts, env, v, stack, arg0); // jmp
     }
     else if (op === FRAME) // add frame
@@ -1138,9 +1117,14 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     }
     else if (op === CALL)
     {
-        var v = another_interpreter(insts, acc.closure_env, null, stack, acc.start_pc);
-        // pop frame
-        stack.pop();
+        if(acc.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+        {
+            var v = acc.func(stack.pop());
+            return another_interpreter(insts, env, v, stack, pc+1);
+        }
+        var closure_env = acc.closure_env.slice(0);
+        closure_env.push(stack.pop()); // push temp frame
+        var v = another_interpreter(insts, closure_env, null, stack, acc.start_pc);
         return another_interpreter(insts, env, v, stack, pc+1);
     }
     else if (op === TEST)
@@ -1183,7 +1167,25 @@ var displayInsts = function(insts)
             console.log("TEST " + insts[i][1] + " " + insts[i][2]);
         if(op === JMP)
             console.log("JMP " + insts[i][1] + " " + insts[i][2]);
+        if(op === NIL)
+            console.log("NIL " + insts[i][1] + " " + insts[i][2]);
     }
+}
+var formatList = function(x)
+{
+    if(x.NULL) return "()";
+    var output = "(";
+    while(!x.NULL)
+    {
+        var v = car(x);
+        if(v.TYPE === LIST)
+            output += formatList(v);
+        else output += v;
+        output += " "
+        x = cdr(x);
+    }
+    output+=")"
+    return output;
 }
 
 /*
@@ -1202,18 +1204,32 @@ if (typeof(module)!="undefined"){
    	module.exports.compile_sequence = compile_sequence;
 }
 
+var display_ = new Builtin_Primitive_Procedure(function(stack_param){
+    console.log(stack_param[0]);
+})
 
-var instructions = [];
-var env = [{
-    "+":true, "-":true, "*":true, "/":true, "list":true,
-}]
 
-var x = "(define x (quote (1 2 3)))"
+var INSTRUCTIONS = [];
+var SYMBOL_TABLE = [{
+    "+":0, "-":1, "*":2, "/":3, "list":4, "vector":5, "dictionary":6, "keyword":7, "cons":8, "car":9, "cdr":10,
+    "display":11, 
+}, // first layer for primitive builtin procedure
+{}]
+var ENVIRONMENT = [
+    [0,0,0,0,0,0,0,0,0,0,0,display_],
+    []
+]
+var STACK = []
+
+
+var x = "(define x 12) (display x)"
 var l = lexer(x);
 var p = parser(l);
-var o = another_compiler_seq(p, env, instructions);
-displayInsts(instructions);
+var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
+displayInsts(INSTRUCTIONS);
 
+var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
+console.log(x)
 
 
 
