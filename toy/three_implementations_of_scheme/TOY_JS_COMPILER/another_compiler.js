@@ -134,7 +134,8 @@ var lexer = function(input_str)
             || input_str[i]=="[" || input_str[i]=="]"
             || input_str[i]=="{" || input_str[i]=="}"
             || input_str[i]==" " || input_str[i]=="\t"
-            || input_str[i]=="\n" || input_str[i]==";")
+            || input_str[i]=="\n" || input_str[i]==";"
+            || input_str[i]==",")
             return i;
         else
             return find_final_number_of_atom_index(input_str, i+1);
@@ -963,7 +964,7 @@ var another_compiler_lambda = function(args, body, symbol_table, instructions)
     instructions[index][1] = instructions.length - 1; // set return index
     return;
 }
-var another_compiler_macro = function(args, body, symbol_table, instructions)
+var another_compiler_macro = function(macro_name, args, body, symbol_table, instructions)
 {
     // begin closure
     var index = instructions.length;
@@ -981,6 +982,7 @@ var another_compiler_macro = function(args, body, symbol_table, instructions)
     // add return
     instructions.push([RETURN, 0, 0]);
     instructions[index][1] = instructions.length - 1; // set return index
+    instructions.push([ASSIGN, macro_name, 1]); // set macro
     return;
 }
 var another_compiler_applic = function(head, params, symbol_table, instructions)
@@ -1050,10 +1052,11 @@ var compile_list = function(exp, symbol_table, instructions)
                          cons(compile_list(v, symbol_table, instructions),
                               cons(compile_list(cdr(exp), symbol_table, instructions), build_nil())))
         }
-        else 
+        else {
             return cons("cons",
-                        cons(v, 
+                        cons(cons('quote', cons(v, null)), 
                              cons(compile_list(cdr(exp), symbol_table, instructions), build_nil())))
+        }
     }
 }
 
@@ -1092,6 +1095,10 @@ var another_compiler = function(exp, symbol_table, instructions)
             {
                     return another_compiler(compile_list(cadr(exp), symbol_table, instructions), symbol_table, instructions);
             }   
+            else if (isNumber(v))
+            {
+            	instructions.push([CONSTANT, v, 1]);
+            }
             else
             {
                 instructions.push([CONSTANT, v, 0]); // 0 means atom
@@ -1138,9 +1145,35 @@ var another_compiler = function(exp, symbol_table, instructions)
             return another_compiler_lambda(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
         }
         /* (defmacro square (x) @(* ,x ,x)) */
-        else if (tag === "macro") // calculate macro
+        else if (tag === "defmacro") // calculate macro
         {
-            return another_compiler_macro(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
+        								 // macroname // args    // body
+            return another_compiler_macro(cadr(exp), caddr(exp), cdddr(exp), symbol_table.slice(0), instructions);
+        }
+        /* check macro */
+        else if (tag in symbol_table[1] && symbol_table[1][tag].TYPE === MACRO)
+        {
+        	// console.log("=========== It is macro =================");
+        	var macro_value = symbol_table[1][tag];
+
+        	var closure_env = macro_value.closure_env.slice(0);
+            var start_pc = macro_value.start_pc;
+            var param_array = macro_value.param_array; // retrieve param array.. eg (def (add a b) (+ a b)) param array is [a, b]
+            var new_frame = {}; // create new env frame
+
+            var param_vals = cdr(exp); // add params to frame
+            for(var i = 0; i < param_array.length; i++)
+            {
+            	var p_v = car(param_vals)
+            	new_frame[param_array[i]] = p_v;  // assign value
+            	param_vals = cdr(p_v);
+            }
+            closure_env.push(new_frame); // add new frame
+            var v = another_interpreter(instructions, closure_env, null, [], start_pc); // calculate macro
+
+            // recompile calculated macro
+            another_compiler(v, symbol_table, instructions);
+        	return;  
         }
         /*
         else if (tag in ENVIRONMENT[0] && ENVIRONMENT[0][tag].TYPE === MACRO)
@@ -1181,7 +1214,7 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     var op = inst[0];
     var arg0 = inst[1];
     var arg1 = inst[2];
-    console.log("===> " + op + " " + arg0 + " " + arg1)
+    // console.log("===> " + op + " " + arg0 + " " + arg1)
     if(op === REF)
         return another_interpreter(insts, env, env[arg1][arg0], stack, pc+1);
     else if (op === CONSTANT){
@@ -1234,16 +1267,16 @@ var another_interpreter = function(insts, env, acc, stack, pc)
         stack[stack.length - 1].push(acc);
         return another_interpreter(insts, env, acc, stack, pc+1);
     }
+    else if (op === NIL) // build null
+    {
+    	return another_interpreter(insts, env, null, stack, pc+1);
+    }
     else if (op === CALL)
     {
         if(acc.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
         {
             var v = acc.func(stack.pop());
             return another_interpreter(insts, env, v, stack, pc+1);
-        }
-        else if (acc.TYPE === MACRO)
-        {
-        	console.log("==== MACRO ====");
         }
         else if (acc.TYPE === PROCEDURE)
         {
@@ -1292,6 +1325,8 @@ var another_interpreter = function(insts, env, acc, stack, pc)
         console.log("Error...invalid instructions opcode " + op);
     }
 }
+
+
 var displayInsts = function(insts)
 {
     for(var i = 0; i < insts.length; i++)
@@ -1404,7 +1439,158 @@ var dictionary_ = new Builtin_Primitive_Procedure(function(stack_param)
 	}
 	return output
 })
-
+/*
+	immutable
+	(conj [1,2] 3) => [1,2,3]
+	(conj '(1 2) 3) => (3 1 2)
+	(conj {:a 1} {:b 2}) => {:a 1 :b 2}
+*/
+var conj_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var arg0  = stack_param[0];
+	var arg1 = stack_param[1];
+	if(arg0.TYPE === LIST)
+	{
+		return cons(arg1, arg0);
+	}
+	else if (arg0 instanceof Array)
+	{
+		var output = arg0.slice(0);
+		output.push(arg1);
+		return output;
+	}
+	else if (arg0 instanceof Object)
+	{
+		var output = Object.create(arg0);
+		for(var i in arg1)
+		{
+			output[i] = arg1[i];
+		}
+		return output; // the print has error
+	}
+})
+/*
+	mutable
+*/
+var conj_$ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var arg0  = stack_param[0];
+	var arg1 = stack_param[1];
+	if(arg0.TYPE === LIST)
+	{
+		return cons(arg1, arg0);
+	}
+	else if (arg0 instanceof Array)
+	{
+		arg0.push(arg1);
+		return arg0;
+	}
+	else if (arg0 instanceof Object)
+	{
+		for(var i in arg1)
+		{
+			arg0[i] = arg1[i];
+		}
+		return arg0;
+	}
+})
+/*
+	immutable
+	(assoc [1,2,3] 0 12) => [12 2 3]
+	(assoc {:a 12} :a 13) => {:a 13} 
+*/
+var assoc_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var arg0 = stack_param[0];
+	var arg1 = stack_param[1];
+	var arg2 = stack_param[2];
+	if(arg0 instanceof Array)
+	{
+		var output = arg0.slice(0);
+		output[arg1] = arg2;
+		return output;
+	}
+	else if (arg0 instanceof Object)
+	{
+		var output = Object.create(arg0);
+		output[arg1] = arg2;
+		return output;
+	}
+	else
+	{
+		console.log("ERROR...Function assoc wrong type parameters");
+	}
+})
+/*
+	immutable pop
+	(pop [1,2]) => [1]
+	(pop '(1 2)) => (2)
+*/
+var pop_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var arg0 = stack_param[0];
+	if(arg0 instanceof Array)
+	{
+		var output = arg0.slice(0);
+		output.pop();
+		return output;
+	}
+	else if (arg0.TYPE === LIST)
+	{
+		return cdr(arg0);
+	}
+	else
+	{
+			console.log("ERROR...Function pop wrong type parameters");	
+	}
+})
+/*
+	mutable
+*/
+var pop_$ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var arg0 = stack_param[0];
+	if(arg0 instanceof Array)
+	{
+		arg0.pop();
+		return arg0;
+	}
+	else
+	{
+			console.log("ERROR...Function pop wrong type parameters");	
+	}
+})
+/*
+	mutable 
+*/
+var assoc_$ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var arg0 = stack_param[0];
+	var arg1 = stack_param[1];
+	var arg2 = stack_param[2];
+	if(arg0 instanceof Array)
+	{
+		arg0[arg1] = arg2;
+		return arg0;
+	}
+	else if (arg0 instanceof Object)
+	{
+		arg0[arg1] = arg2;
+		return output;
+	}
+	else
+	{
+		console.log("ERROR...Function assoc wrong type parameters");
+	}
+})
+var lt_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return stack_param[0]<stack_param[1];
+})
+var eq_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return stack_param[0]===stack_param[1];
+})
 /*
 var SYMBOL_TABLE = [{
     "+":0, "-":1, "*":2, "/":3, "list":4, "vector":5, "dictionary":6, "keyword":7, "cons":8, "car":9, "cdr":10,
@@ -1419,24 +1605,46 @@ var INSTRUCTIONS = [];
 var STACK = []
 var ENVIRONMENT = 
 [{"+":add_, "-":sub_, "*":mul_, "/":div_, "vector":vector_, "dictionary":dictionary_, "keyword":keyword_,
-  "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":true, "false":null, "null?":null_
+  "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":true, "false":false, "null?":null_, "conj":conj_, "conj!":conj_$, "assoc":assoc_,
+  "assoc!":assoc_$, "pop":pop_, "pop!":pop_$, "<":lt_, "eq?":eq_
 },
  {}]
+var ACC = null;
+var PC = 0;
 
 
-
-var x = ''
+var x = "(def x {:a 12}) (display (conj x {:b 16}))"
 var l = lexer(x);
 var p = parser(l);
 // var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
+/*
 var o = another_compiler_seq(p, ENVIRONMENT, INSTRUCTIONS);
 
 displayInsts(INSTRUCTIONS);
 
 var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
 console.log(x)
+*/
+var another_eval = function(exp)
+{
+	var o = another_compiler(exp, ENVIRONMENT, INSTRUCTIONS);	 // compile
+	displayInsts(INSTRUCTIONS); // print instructions 
+	var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, ACC, STACK, PC); // interpret
+	PC = INSTRUCTIONS.length; // update pc
+}
+var eval_sequence = function(exps)
+{
+	if(exps==null)
+        return ACC;
+    else
+    {
+    	another_eval(car(exps));
+        return eval_sequence(cdr(exps));
+    }
+}
 
-
+eval_sequence(p);
+console.log(ENVIRONMENT)
 
 
 
