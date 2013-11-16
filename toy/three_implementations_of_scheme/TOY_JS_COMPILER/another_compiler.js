@@ -7,6 +7,8 @@ var LIST = 2;
 var MACRO = 4;
 var PROCEDURE = 6;
 var BUILTIN_PRIMITIVE_PROCEDURE = 8;
+var RATIO = 10;
+var FLOAT = 12;
 
 // build List
 var Cons = function(x, y)
@@ -46,6 +48,12 @@ var Builtin_Primitive_Procedure = function(func)
     this.func = func;
     this.TYPE = BUILTIN_PRIMITIVE_PROCEDURE;
 }
+var Toy_Number = function(numer, denom, type)
+{
+    this.TYPE === type;
+    this.numer = numer;
+    this.denom = denom;
+}
 var cons = function(x, y)
 {
     return new Cons(x,y);
@@ -69,8 +77,9 @@ var isInteger = function(n)
     if(n[0]=="-") n = n.slice(1);
     return n==="0" || /^[1-9][0-9]*$/.test(n) }
 var isFloat = function(n){return isNumber(n) && !(isInteger(n))}
-var isRatio = function(n)
+var isRatio = function(n) // can only check string
 {
+    if(typeof(n)!=="string") return false;
     var index_of_slash = n.indexOf("/");
     if(index_of_slash === -1) return false;
     var numer = n.slice(0, index_of_slash);
@@ -80,7 +89,7 @@ var isRatio = function(n)
     {
         if(parseInt(denom) === 0)
         {
-            error("Invalid ratio --- " + n + " with denominator 0");
+            console.log("Invalid ratio --- " + n + " with denominator 0");
         }
         return true;
     }
@@ -341,7 +350,45 @@ var application_args = function(exp)
 
 
 
-
+/*
+    Numeric Calculation
+*/
+// GCD
+var gcd = function(a,b)
+{
+    if (b==0)
+        return a
+    return gcd(b,a%b)
+}
+var numer = function(rat){return rat.numer}
+var denom = function(rat){return rat.denom}
+var make_rat = function(numer, denom)
+{
+    var g = gcd(numer, denom)
+    var numer = numer/g;
+    var denom = denom/g;
+    return new Toy_Number(numer, denom, RATIO);
+}
+/* convert Toy_Number to string */
+var number_to_string = function(num)
+{
+    if(num.TYPE === FLOAT) return ""+num.numer;
+    else if (num.denom === 1) return "" + num.numer;
+    return num.numer+"/"+num.denom;
+}
+// fraction arithematic
+var add_rat = function(x,y){
+   return make_rat( numer(x)*denom(y)+numer(y)*denom(x) , denom(x)*denom(y))
+}
+var sub_rat = function(x,y){
+    return make_rat( numer(x)*denom(y)-numer(y)*denom(x) , denom(x)*denom(y))
+}
+var mul_rat = function(x,y){
+    return make_rat(numer(x)*numer(y), denom(x)*denom(y))
+}
+var div_rat = function (x,y){
+    return make_rat(numer(x)*denom(y),denom(x)*numer(y))
+}
 
 
 
@@ -390,6 +437,7 @@ var TEST = 9; // test jmp
 var JMP = 10; // jmp jump steps
 var NIL = 11; 
 var ADDPARAM = 12; // ADDPARAM name
+var MAKE_RATIO = 13; // construct ratio
 var lookup_env = function(symbol_table, var_name, instructions)
 {
     for(var i = symbol_table.length-1; i>=0; i--)
@@ -529,7 +577,15 @@ var another_compiler = function(exp, symbol_table, instructions)
 {
     if (isNumber(exp))     // number
     {
-        instructions.push([CONSTANT, parseFloat(exp), 1]); // 1 means number
+        if(isInteger(exp))
+            instructions.push([MAKE_RATIO, exp, 1]);
+        else
+            instructions.push([CONSTANT, exp, 1]); // 1 means float
+        return;
+    }
+    else if (isRatio(exp))
+    {
+        instructions.push([MAKE_RATIO, getNumerator(exp), getDenominator(exp)]);
         return;
     }
     else if(typeof(exp) === 'string') // string
@@ -558,7 +614,15 @@ var another_compiler = function(exp, symbol_table, instructions)
             }   
             else if (isNumber(v))
             {
-            	instructions.push([CONSTANT, v, 1]);
+                if(isInteger(exp))
+                    instructions.push([MAKE_RATIO, exp, 1]);
+                else
+            	   instructions.push([CONSTANT, v, 1]);
+            }
+            else if (isRatio(v))
+            {
+                instructions.push([MAKE_RATIO, getNumerator(v), getDenominator(v)]);
+                return;
             }
             else
             {
@@ -681,8 +745,8 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     else if (op === CONSTANT){
     	var v = arg0;
     	if(arg1 === 0){} // atom
-    	else if (arg1 === 1) // number
-    		v = parseFloat(arg0);
+    	else if (arg1 === 1) // float number
+    		v = new Toy_Number(arg0, 1, FLOAT);
     	else // string
     		v = v.slice(1, v.length - 1);
         return another_interpreter(insts, env, v, stack, pc+1);
@@ -771,9 +835,13 @@ var another_interpreter = function(insts, env, acc, stack, pc)
          	return; 
         }
     }
+    else if (op === MAKE_RATIO) // make ratio number
+    {
+        return another_interpreter(insts, env, make_rat(parseFloat(arg0), parseFloat(arg1)) , stack, pc+1);
+    }
     else if (op === TEST)
     {
-        if(acc == null)
+        if(!acc)
             return another_interpreter(insts, env, acc, stack, pc+arg0);
         else return another_interpreter(insts, env, acc, stack, pc+1);
     }
@@ -817,11 +885,13 @@ var displayInsts = function(insts)
             console.log("NIL " + insts[i][1] + " " + insts[i][2]);
         if(op === ADDPARAM)
             console.log("ADDPARAM " + insts[i][1] + " " + insts[i][2]);
+        if(op === MAKE_RATIO)
+            console.log("MAKE_RATIO " + insts[i][1] + " " + insts[i][2]);
     }
 }
 var formatList = function(x)
 {
-    if(x.null) return "()";
+    if(x === null) return "()";
     var output = "(";
     while(x!==null)
     {
@@ -852,21 +922,87 @@ if (typeof(module)!="undefined"){
    	// module.exports.compile_sequence = compile_sequence;
 }
 
-var display_ = new Builtin_Primitive_Procedure(function(stack_param){
-    console.log(stack_param[0]);
+var number$ = function(v)
+{
+    return v instanceof Toy_Number;
+}
+var number$_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    return number$(stack_param[0]);
 })
-var add_ = new Builtin_Primitive_Procedure(function(stack_param){
-    return stack_param[0] + stack_param[1];
+var add_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    var arg0_number = arg0 instanceof Toy_Number;
+    var arg1_number = arg1 instanceof Toy_Number;
+    if(arg0_number && arg1_number)
+    {
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return arg0.numer/arg0.denom + arg1.numer/arg1.denom;
+        return add_rat(arg0, arg1);
+    }
+    if(arg0_number) arg0 = number_to_string(arg0);
+    if(arg1_number) arg1 = number_to_string(arg1);
+    return arg0 + arg1;
 })
-var sub_ = new Builtin_Primitive_Procedure(function(stack_param){
-    return stack_param[0] - stack_param[1];
+var sub_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    var arg0_number = arg0 instanceof Toy_Number;
+    var arg1_number = arg1 instanceof Toy_Number;
+    if(arg0_number && arg1_number)
+    {
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return arg0.numer/arg0.denom - arg1.numer/arg1.denom;
+        return sub_rat(arg0, arg1);
+    }
+    if(arg0_number) arg0 = number_to_string(arg0);
+    if(arg1_number) arg1 = number_to_string(arg1);
+    return arg0 - arg1;
 })
-var mul_ = new Builtin_Primitive_Procedure(function(stack_param){
-    return stack_param[0] * stack_param[1];
+var mul_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    var arg0_number = arg0 instanceof Toy_Number;
+    var arg1_number = arg1 instanceof Toy_Number;
+    if(arg0_number && arg1_number)
+    {
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return (arg0.numer/arg0.denom) * (arg1.numer/arg1.denom);
+        return mul_rat(arg0, arg1);
+    }
+    if(arg0_number) arg0 = number_to_string(arg0);
+    if(arg1_number) arg1 = number_to_string(arg1);
+    return arg0 * arg1;
 })
-var div_ = new Builtin_Primitive_Procedure(function(stack_param){
-    return stack_param[0] / stack_param[1];
+var div_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    var arg0_number = arg0 instanceof Toy_Number;
+    var arg1_number = arg1 instanceof Toy_Number;
+    if(arg0_number && arg1_number)
+    {
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return (arg0.numer/arg0.denom) / (arg1.numer/arg1.denom);
+        return  div_rat(arg0, arg1);
+    }
+    if(arg0_number) arg0 = number_to_string(arg0);
+    if(arg1_number) arg1 = number_to_string(arg1);
+    return arg0 / arg1;
 })
+var ratio$_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+  return stack_param[0] instanceof Toy_Number && (stack_param[0].TYPE === RATIO);
+})
+var float$_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+  return stack_param[0] instanceof Toy_Number && (stack_param[0].TYPE === FLOAT);
+})
+/* get numerator of number */
+var numerator_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+    if(stack_param[0] instanceof Toy_Number)
+        return new Toy_Number(stack_param[0].numer, 1, RATIO);
+    else
+        console.log("ERROR:Function numerator wrong type parameters")
+})
+/* get denominator of number */
+var denominator_ = new Builtin_Primitive_Procedure(function(stack_param){ 
+    if(stack_param[0] instanceof Toy_Number)
+        return new Toy_Number(stack_param[0].denom, 1, RATIO);
+    else
+        console.log("ERROR:Function denominator wrong type parameters")
+})
+
 var null_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
 	return stack_param[0] === null;
@@ -1046,11 +1182,250 @@ var assoc_$ = new Builtin_Primitive_Procedure(function(stack_param)
 })
 var lt_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
-	return stack_param[0]<stack_param[1];
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    var arg0_number = arg0 instanceof Toy_Number;
+    var arg1_number = arg1 instanceof Toy_Number;
+    if (arg0_number) arg0 = arg0.numer/arg0.denom;
+    if (arg1_number) arg1 = arg1.numer/arg1.denom;
+    return arg0 < arg1;
 })
 var eq_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
-	return stack_param[0]===stack_param[1];
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    var arg0_number = arg0 instanceof Toy_Number;
+    var arg1_number = arg1 instanceof Toy_Number;
+    if (arg0_number) arg0 = arg0.numer/arg0.denom;
+    if (arg1_number) arg1 = arg1.numer/arg1.denom;
+    return arg0 === arg1;
+})
+
+var formatNumber = number_to_string;
+var formatList = function(l) // format list object to javascript string
+{
+    if(l === null) // it is null
+    {
+        return '()';
+    }
+    else
+    {
+        var output = "(";
+        var p = l; // pointer
+        while(1)
+        {
+            if(l === null) // finish
+            {
+                output = output + ")";
+                break;
+            }
+            if(!(l instanceof Cons)) // pair
+            {
+                var c = l;
+                output = output + ". ";
+                if(number$(c))
+                    output = output + formatNumber(c) + ")";
+                else if (typeof(c) === "string")
+                    output = output + c + ")";
+                else if (c  instanceof Cons)
+                    output = output + formatList(c) + ")";
+                else if (c instanceof Array)
+                    output = output + formatVector(c) + ")";
+                else if (c instanceof Object)
+                    output = output + formatDictionary(c) + ")";
+                else if (c.TYPE === PROCEDURE)
+                    output = output + "< user-defined-procedure >)" ;
+                else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+                    output = output + "< builtin-primitive-procedure >)"      ;
+                break;
+            }
+            var c = l.car;
+            if(number$(c))
+                output = output + formatNumber(c) + " ";
+            else if (typeof(c) === "string")
+                output = output + c + " ";
+            else if (c  instanceof Cons)
+                output = output + formatList(c) + " ";
+            else if (c instanceof Array)
+                output = output + formatVector(c) + " ";
+            else if (c instanceof Object)
+                output = output + formatDictionary(c) + " ";
+            else if (c.TYPE === PROCEDURE)
+                output = output + "< user-defined-procedure > " ;
+            else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+                output = output + "< builtin-procedure > "      ;
+            l = l.cdr; 
+        }
+        return output;
+    }
+}
+var formatVector = function(v)
+{
+    var output = "[";
+    var p = v; // pointer
+    for(var i = 0; i < p.length; i++)
+    {
+        var c = p[i];
+        if(number$(c))
+            output = output + formatNumber(c) + " ";
+        else if (typeof(c) === "string")
+            output = output + c + " ";
+        else if (c instanceof Cons)
+            output = output + formatList(c) + " ";
+        else if (c instanceof Array)
+            output = output + formatVector(c) + " ";
+        else if (c instanceof Object)
+            output = output + formatDictionary(c) + " ";
+        else if (c.TYPE === PROCEDURE)
+            output = output + "< user-defined-procedure > " ;
+        else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+            output = output + "< builtin-procedure > "      ;
+    }
+    output = output + "]"
+    return output;
+}
+var formatDictionary = function(d)
+{
+    var output = "{";
+    var p = d.dict; // pointer
+    for(var key in p)
+    {
+        output = output + key + " "
+        var c = p[key];
+        if(number$(c))
+            output = output + formatNumber(c) + ", ";
+        else if (typeof(c) === 'string')
+            output = output + (c) + ", ";
+        else if (c instanceof Cons)
+            output = output + formatList(c) + ", ";
+        else if (c instanceof Array)
+            output = output + formatVector(c) + ",";
+        else if (c instanceof Object)
+            output = output + formatDictionary(c) + ", ";
+        else if (c.TYPE === PROCEDURE)
+            output = output + "< user-defined-procedure >, " ;
+        else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+            output = output + "< builtin-procedure >, "      ;
+    }
+    output = output + "}"
+    return output;
+}
+
+var display_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    var v = stack_param[0];
+    if(number$(v))
+    {
+        console.log(formatNumber(v));
+        return 'undefined'
+    }
+    else if (typeof(v) === "string")
+    {
+        console.log((v));
+        return ('undefined')
+    }
+    else if (v instanceof Cons)
+    {
+        console.log(formatList(v));
+        return ('undefined')
+    }
+    else if (v instanceof Array)
+    {
+        console.log(formatVector(v));
+        return ('undefined')
+    }
+    else if (v instanceof Object)
+    {
+        console.log(formatDictionary(v));
+        return ('undefined')
+    }
+    else if (v.TYPE === PROCEDURE)
+    {
+        console.log("< user-defined-procedure >");
+        return ('undefined')
+    }
+    else if (v.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+    {
+        console.log("< builtin-procedure >")
+        return ('undefined')
+    }
+    else
+    {
+        console.log("Function display: Invalid Parameters Type");
+        return ('undefined')
+    }
+})
+var random_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    return new Toy_Number(Math.rand(), 1, FLOAT);
+})
+var _to_ratio = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    var arg = stack_param[0];
+    if(number$(arg))
+    {
+        if(arg.TYPE === RATIO)
+        {
+            return arg;
+        }
+        else
+        {
+            var num = arg.numer;
+            var getNumOfNumberAfterDot = function(num){
+                num = "" + num
+                var i = num.indexOf('.')+1
+                return num.length - i;
+            }
+            var _n = Math.pow(10, getNumOfNumberAfterDot(num));
+            return make_rat(num * _n, _n);
+        }
+    }
+    else
+    {
+        console.log("Function ->ratio --- only support number type data");
+        return ('undefined');
+    }
+})
+var dictionary_keys_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    return Object.keys(stack_param[0]);
+})
+/*
+    (ref "string" 0) => "s"
+    (ref [1 2] 0) => 1
+    (ref {:a 1} :a) => 1
+
+    */
+var ref_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    var arg0 = stack_param[0]; var arg1 = stack_param[1];
+    if(typeof(arg0) === "string")
+        return arg0[arg1];
+    if(arg0 instanceof Array || arg0 instanceof Object) return arg0[arg1];
+    else
+        console.log("ERROR:Function ref wrong type parameters")
+})
+var to_str_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+     // change obj to atom
+    var v = stack_param[0];
+    if(number$(v))
+        return (formatNumber(v));
+    else if (typeof(v) === "string" )
+        return v;
+    else if (v instanceof Cons)
+        return (formatList(v));
+    else if (v instanceof Array)
+        return (formatVector(v));
+    else if (v instanceof Object)
+        return (formatDictionary(v));
+    else if (v.TYPE === PROCEDURE)
+        return ("< user-defined-procedure >");
+    else if (v.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
+        return ('undefined');
+    else
+    {
+        console.log("Function display: Invalid Parameters Type");
+        return new ATOM('undefined');
+    }
 })
 /*
 var SYMBOL_TABLE = [{
@@ -1067,14 +1442,15 @@ var STACK = []
 var ENVIRONMENT = 
 [{"+":add_, "-":sub_, "*":mul_, "/":div_, "vector":vector_, "dictionary":dictionary_, "keyword":keyword_,
   "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":true, "false":false, "null?":null_, "conj":conj_, "conj!":conj_$, "assoc":assoc_,
-  "assoc!":assoc_$, "pop":pop_, "pop!":pop_$, "<":lt_, "eq?":eq_
+  "assoc!":assoc_$, "pop":pop_, "pop!":pop_$, "<":lt_, "eq?":eq_, "number?":number$_, "ratio?":ratio$_, "float?":float$_, "numerator":numerator_, 
+  "denominator":denominator_, "random":random_, "->ratio":_to_ratio, "dictionary-keys":dictionary_keys_, "ref":ref_, "->str":to_str_
 },
  {}]
 var ACC = null;
 var PC = 0;
 
 
-var x = "(def x {:a 12}) (assoc! x :a 15)"
+var x = "(display '(1 2 3))"
 var l = lexer(x);
 var p = parser(l);
 // var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
@@ -1104,9 +1480,9 @@ var eval_sequence = function(exps)
     }
 }
 
+
 eval_sequence(p);
 console.log(ENVIRONMENT)
-
 
 
 
