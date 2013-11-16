@@ -25,17 +25,19 @@ var Cons = function(x, y)
     this.TYPE = LIST  // for virtual machien check
 }
 // build procedure
-var Procedure = function(start_pc, env)
+var Procedure = function(start_pc, env, param_array)
 {
     this.start_pc = start_pc;
     this.closure_env = env;
+    this.param_array = param_array;
     this.TYPE = PROCEDURE;
 }
 // build macro
-var Macro = function(start_pc, env)
+var Macro = function(start_pc, env, param_array)
 {
     this.start_pc = start_pc;
     this.closure_env = env;
+    this.param_array = param_array;
     this.TYPE = MACRO;
 }
 // build primitive builtin procedure
@@ -141,7 +143,7 @@ var lexer = function(input_str)
     {
         if(i>=input_str.length)
             return null; // finish
-        else if(input_str[i]===" " || input_str[i]=="\n" || input_str[i]=="\t") // remove space tab newline
+        else if(input_str[i]===" " || input_str[i]=="\n" || input_str[i]=="\t" || input_str[i]===",") // remove space tab newline ,
             return lexer_iter(input_str, i + 1);
         else if(input_str[i]==="(")
             return cons( "(", lexer_iter(input_str, i + 1));
@@ -151,7 +153,7 @@ var lexer = function(input_str)
             return cons( "(", cons( "dictionary", lexer_iter(input_str, i + 1)));
         else if(input_str[i]===")" || input_str[i]=="]" || input_str[i]=="}")
             return cons( ")", lexer_iter(input_str, i + 1));
-        else if(input_str[i]==="'" || input_str[i]=="@" || input_str[i]==",")
+        else if(input_str[i]==="'" || input_str[i]=="`" || input_str[i]=="~")
             return cons( input_str[i], lexer_iter(input_str, i + 1));
         else if(input_str[i]==='"')
         {
@@ -198,7 +200,7 @@ var parser = function(l)
         {
             return cons(parse_list(cdr(l)), parse_list(rest));
         }
-        else if (car(l) === "'" || car(l) === "," || car(l) === "@")  // quote unquote quasiquote
+        else if (car(l) === "'" || car(l) === "~" || car(l) === "`")  // quote unquote quasiquote
         {
             return cons(parse_special(l), parse_list(rest));
         }
@@ -212,7 +214,7 @@ var parser = function(l)
         var tag ;
         if(car(l) === "'")
             tag = "quote"
-        else if (car(l) === ",")
+        else if (car(l) === "~")
             tag = "unquote"
         else tag = 'quasiquote'
         l = cdr(l);
@@ -220,7 +222,7 @@ var parser = function(l)
         {
             return cons(tag, cons(parse_list(cdr(l)), build_nil()));
         }
-        else if (car(l) === "'" || car(l) === "," || car(l) === "@")  // quote unquote quasiquote
+        else if (car(l) === "'" || car(l) === "~" || car(l) === "`")  // quote unquote quasiquote
         {   // here my be some errors
             return cons(tag, cons(parse_special(l), build_nil()));
         }
@@ -256,7 +258,7 @@ var parser = function(l)
             return build_atom(l);
             */
         if(l[0]==":")
-            return cons("keyword", cons(l.slice(1), build_nil()))
+            return cons("keyword", cons('"'+l.slice(1)+'"', build_nil()))
         /*
         if(l == "+" || l == "-" || l =="*" || l =="/" || l =="%"
             || l == "<" || l =="eq?")
@@ -287,7 +289,7 @@ var parser = function(l)
         return cons(parse_list(cdr(l)), parser(rest));
     }
     // quote // unquote // quasiquote
-    else if (car(l) === "'" || car(l) === "," || car(l) === "@")
+    else if (car(l) === "'" || car(l) === "~" || car(l) === "`")
     {
         return cons(parse_special(l), rest);
     }
@@ -951,7 +953,8 @@ var another_compiler_lambda = function(args, body, symbol_table, instructions)
     while(args!==null)
     {
         // symbol_table[symbol_table.length - 1][car(args)] = Object.keys(symbol_table[symbol_table.length - 1]).length;
-        symbol_table[symbol_table.length - 1][car(args)] = true;;
+        symbol_table[symbol_table.length - 1][car(args)] = true
+        instructions.push([ADDPARAM, car(args), 0]); // add params
         args = cdr(args);
     }
     another_compiler_seq(body, symbol_table, instructions);
@@ -971,6 +974,7 @@ var another_compiler_macro = function(args, body, symbol_table, instructions)
     while(args!==null)
     {
         symbol_table[symbol_table.length - 1][car(args)] = true;
+        instructions.push([ADDPARAM, car(args), 0]); // add params
         args = cdr(args);
     }
     another_compiler_seq(body, symbol_table, instructions);
@@ -1061,11 +1065,18 @@ var another_compiler = function(exp, symbol_table, instructions)
 {
     if (isNumber(exp))     // number
     {
-        instructions.push([CONSTANT, parseFloat(exp), 0]);
+        instructions.push([CONSTANT, parseFloat(exp), 1]); // 1 means number
         return;
     }
     else if(typeof(exp) === 'string') // string
+    {
+    	if(exp[0] === "\"") 
+    	{
+    		instructions.push([CONSTANT, exp, 2]); // 2 means string
+    		return;
+    	}
         return lookup_env(symbol_table, exp, instructions);
+    }
     else if (exp == null)
     {
         instructions.push([NIL, 0, 0]);
@@ -1083,11 +1094,11 @@ var another_compiler = function(exp, symbol_table, instructions)
             }   
             else
             {
-                instructions.push([CONSTANT, v, 0]);
+                instructions.push([CONSTANT, v, 0]); // 0 means atom
                 return;
             }
         }
-        else if (tag === "define")
+        else if (tag === "def")
         {
             if(cadr(exp).TYPE === LIST)
                 return another_compiler(make_lambda(exp), symbol_table, instructions);
@@ -1110,7 +1121,8 @@ var another_compiler = function(exp, symbol_table, instructions)
             {
                 if(var_name in symbol_table[i])
                 {
-                    instructions.push([ASSIGN, symbol_table[i][var_name], i])
+                    // instructions.push([ASSIGN, symbol_table[i][var_name], i])
+                   	instructions.push([ASSIGN, var_name, i])
                     return;
                 }
             }
@@ -1160,6 +1172,7 @@ var another_compiler = function(exp, symbol_table, instructions)
         }
     }
 }
+
 var another_interpreter = function(insts, env, acc, stack, pc)
 {
     if(pc === insts.length)
@@ -1168,10 +1181,18 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     var op = inst[0];
     var arg0 = inst[1];
     var arg1 = inst[2];
+    console.log("===> " + op + " " + arg0 + " " + arg1)
     if(op === REF)
         return another_interpreter(insts, env, env[arg1][arg0], stack, pc+1);
-    else if (op === CONSTANT)
-        return another_interpreter(insts, env, arg0, stack, pc+1);
+    else if (op === CONSTANT){
+    	var v = arg0;
+    	if(arg1 === 0){} // atom
+    	else if (arg1 === 1) // number
+    		v = parseFloat(arg0);
+    	else // string
+    		v = v.slice(1, v.length - 1);
+        return another_interpreter(insts, env, v, stack, pc+1);
+    }
     else if (op === ASSIGN)
     {
         env[arg1][arg0] = acc;
@@ -1184,10 +1205,23 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     else if (op === CLOSURE)
     {
         var v;
+        /* 
+        	count param num
+        */
+        pc++;
+        var param_array = [];
+        while(insts[pc][0]==ADDPARAM)
+        {
+        	param_array.push(insts[pc][1]);
+        	pc++;
+        }
+        /*
+			finish save param array
+        */
         if(arg1 === 1)
-            v = new Macro(pc+1, env.slice(0)); // macro
+            v = new Macro(pc, env.slice(0), param_array); // macro
         else 
-            v =  new Procedure(pc+1, env.slice(0)); // make closure... temp
+            v =  new Procedure(pc, env.slice(0), param_array); // make closure... temp
         return another_interpreter(insts, env, v, stack, arg0+1); // jmp
     }
     else if (op === FRAME) // add frame
@@ -1207,12 +1241,40 @@ var another_interpreter = function(insts, env, acc, stack, pc)
             var v = acc.func(stack.pop());
             return another_interpreter(insts, env, v, stack, pc+1);
         }
-        else
+        else if (acc.TYPE === MACRO)
         {
-            var closure_env = acc.closure_env.slice(0);
-            closure_env.push(stack.pop()); // push temp frame
+        	console.log("==== MACRO ====");
+        }
+        else if (acc.TYPE === PROCEDURE)
+        {
+        	var closure_env = acc.closure_env.slice(0);
+            
+            var param_array = acc.param_array; // retrieve param array.. eg (def (add a b) (+ a b)) param array is [a, b]
+            var new_frame = {}; // create new env frame
+            var param_vals = stack.pop(); // pop temp frame from stack
+            for(var i = 0; i < param_array.length; i++)
+            {
+            	new_frame[param_array[i]] = param_vals[i];  // assign value
+            }
+            delete stack; // delete stack
+            closure_env.push(new_frame); // add new frame
             var v = another_interpreter(insts, closure_env, null, stack, acc.start_pc);
             return another_interpreter(insts, env, v, stack, pc+1);
+        }
+        else if (acc instanceof Array) // vector ([0, 1] 0) => 0
+        {
+       		var param_vals = stack.pop(); // pop temp frame from stack
+       		return another_interpreter(insts, env, acc[param_vals[0]], stack, pc+1);
+        }
+        else if (acc instanceof Object) // dictionary  ({:a 12} :a) => 12
+        {
+			var param_vals = stack.pop(); // pop temp frame from stack
+       		return another_interpreter(insts, env, acc[param_vals[0]], stack, pc+1);
+        }
+        else // error
+        {
+         	console.log("ERROR...not invalid Macro, Procedure, Dictionary, Vector. hahaha");
+         	return; 
         }
     }
     else if (op === TEST)
@@ -1300,9 +1362,49 @@ var display_ = new Builtin_Primitive_Procedure(function(stack_param){
 var add_ = new Builtin_Primitive_Procedure(function(stack_param){
     return stack_param[0] + stack_param[1];
 })
+var sub_ = new Builtin_Primitive_Procedure(function(stack_param){
+    return stack_param[0] - stack_param[1];
+})
+var mul_ = new Builtin_Primitive_Procedure(function(stack_param){
+    return stack_param[0] * stack_param[1];
+})
+var div_ = new Builtin_Primitive_Procedure(function(stack_param){
+    return stack_param[0] / stack_param[1];
+})
+var null_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return stack_param[0] === null;
+})
+var cons_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return cons(stack_param[0], stack_param[1]);
+})
+var car_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return car(stack_param[0]);
+})
+var cdr_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return cdr(stack_param[0]);
+})
+var keyword_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return stack_param[0];
+})
+var vector_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	return stack_param;
+})
+var dictionary_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+	var output = {};
+	for(var i = 0; i < stack_param.length; i = i + 2)
+	{
+		output[stack_param[i]] = stack_param[i+1];
+	}
+	return output
+})
 
-
-var INSTRUCTIONS = [];
 /*
 var SYMBOL_TABLE = [{
     "+":0, "-":1, "*":2, "/":3, "list":4, "vector":5, "dictionary":6, "keyword":7, "cons":8, "car":9, "cdr":10,
@@ -1313,16 +1415,17 @@ var ENVIRONMENT = [
     [add_,0,0,0,0,0,0,0,0,0,0,display_],
     []
 ]*/
+var INSTRUCTIONS = [];
 var STACK = []
-
 var ENVIRONMENT = 
-[{"+":add_, "-":undefined, "*":undefined, "/":undefined, "list":undefined, "vector":undefined, "dictionary":undefined, "keyword":undefined,
-  "cons":undefined, "car":undefined, "cdr":undefined},
+[{"+":add_, "-":sub_, "*":mul_, "/":div_, "vector":vector_, "dictionary":dictionary_, "keyword":keyword_,
+  "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":true, "false":null, "null?":null_
+},
  {}]
 
 
 
-var x = "(define (add a b) (+ a b)) (add 3 4)"
+var x = ''
 var l = lexer(x);
 var p = parser(l);
 // var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
@@ -1330,8 +1433,8 @@ var o = another_compiler_seq(p, ENVIRONMENT, INSTRUCTIONS);
 
 displayInsts(INSTRUCTIONS);
 
-// var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
-// console.log(x)
+var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
+console.log(x)
 
 
 
