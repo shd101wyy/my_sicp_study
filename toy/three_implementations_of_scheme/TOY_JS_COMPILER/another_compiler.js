@@ -918,13 +918,14 @@ var REF = 1; // ref var_name at_frame_index_of_env
 var CONSTANT = 2; // constant value
 var ASSIGN = 3; // assign var_name at_frame_index_of_env
 var RETURN = 4; // RETURN 0 0
-var CLOSURE = 5; // CLOSURE return_place
+var CLOSURE = 5; // CLOSURE return_place param_num
 var FRAME = 6; // create new frame
 var ARGUMENT = 7; // push argument
 var CALL = 8;     // call 
 var TEST = 9; // test jmp
 var JMP = 10; // jmp jump steps
-var NIL = 11;
+var NIL = 11; 
+var ADDPARAM = 12; // ADDPARAM name
 var lookup_env = function(symbol_table, var_name, instructions)
 {
     for(var i = symbol_table.length-1; i>=0; i--)
@@ -949,7 +950,8 @@ var another_compiler_lambda = function(args, body, symbol_table, instructions)
     // add args
     while(args!==null)
     {
-        symbol_table[symbol_table.length - 1][car(args)] = Object.keys(symbol_table[symbol_table.length - 1]).length;
+        // symbol_table[symbol_table.length - 1][car(args)] = Object.keys(symbol_table[symbol_table.length - 1]).length;
+        symbol_table[symbol_table.length - 1][car(args)] = true;;
         args = cdr(args);
     }
     another_compiler_seq(body, symbol_table, instructions);
@@ -1255,6 +1257,8 @@ var displayInsts = function(insts)
             console.log("JMP " + insts[i][1] + " " + insts[i][2]);
         if(op === NIL)
             console.log("NIL " + insts[i][1] + " " + insts[i][2]);
+        if(op === ADDPARAM)
+            console.log("ADDPARAM " + insts[i][1] + " " + insts[i][2]);
     }
 }
 var formatList = function(x)
@@ -1323,6 +1327,7 @@ var l = lexer(x);
 var p = parser(l);
 // var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
 var o = another_compiler_seq(p, ENVIRONMENT, INSTRUCTIONS);
+
 displayInsts(INSTRUCTIONS);
 
 // var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, null, STACK, 0)
