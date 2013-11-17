@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 var fs=require("fs")
-var toy=require("./toy.js")
+// var toy=require("./toy.js")
+var toy = require("./another_compiler.js")
 var vm=require("vm")
 var util=require("util")
 var readline = require('readline')
@@ -26,8 +27,8 @@ if (argv.length==2){
 	rl.on('line', function(line) {
 		var l = toy.lexer(line);
 		var p = toy.parser(l);
-		var o =  toy.compile_sequence(p);
-		console.log("compile to ==> "+o);
+		var o =  toy.eval_sequence(p);
+		// console.log("compile to ==> "+o);
 		console.log(vm.runInThisContext(o));
 		// toy.display( toy.TOY_Eval(line,toy.ENV_LIST,"") )
 		rl.setPrompt('toy> ')

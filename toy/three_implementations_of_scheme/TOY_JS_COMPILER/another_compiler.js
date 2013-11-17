@@ -433,7 +433,7 @@ var CLOSURE = 5; // CLOSURE return_place param_num
 var FRAME = 6; // create new frame
 var ARGUMENT = 7; // push argument
 var CALL = 8;     // call 
-var TEST = 9; // test jmp
+var TEST = 9; // test jmp_steps
 var JMP = 10; // jmp jump steps
 var NIL = 11; 
 var ADDPARAM = 12; // ADDPARAM name
@@ -512,16 +512,18 @@ var another_compiler_applic = function(head, params, symbol_table, instructions)
 }
 /*
     (if 1 2 3)
-    CONSTANT 1
-    TEST 3 0
-    CONSTANT 2
-    JMP 2
-    CONSTANT 3
+    0 CONSTANT 1
+    1 TEST 3 0
+    2 CONSTANT 2
+    3 JMP 2
+    4 CONSTANT 3
 
 */
 var another_compiler_if = function(test, consequent, alternative, symbol_table, instructions)
 {
-    var index1 = 0;
+    another_compiler(test, symbol_table, instructions) // compile test
+
+    var index1 = instructions.length;
     instructions.push([TEST, 0, 0]);
     // compile consequent
     another_compiler(consequent, symbol_table, instructions);
@@ -531,7 +533,7 @@ var another_compiler_if = function(test, consequent, alternative, symbol_table, 
     // compile alternative
     another_compiler(alternative, symbol_table, instructions);
     instructions[index2][1] = instructions.length - index2;
-    instructions[index1][1] = index2+1;
+    instructions[index1][1] = index2 + 1 - index1;
     return;
 }
 var another_compiler_seq = function(exps, symbol_table, instructions)
@@ -565,6 +567,34 @@ var compile_list = function(exp, symbol_table, instructions)
             return cons("cons",
                         cons(cons('quote', cons(v, null)), 
                              cons(compile_list(cdr(exp), symbol_table, instructions), build_nil())))
+        }
+    }
+}
+var compile_quasiquote = function(exp, symbol_table, instructions)
+{
+    if(exp == null)
+        return build_nil();
+    else
+    {
+        var v = car(exp);
+        if(v.TYPE === LIST)
+        {
+            if(car(v) === "unquote")
+            {
+                var x = cadr(v)
+                return cons("cons",
+                        cons(x, 
+                             cons(compile_quasiquote(cdr(exp), symbol_table, instructions), build_nil())))
+            }
+            else
+                return cons("cons", 
+                         cons(compile_quasiquote(v, symbol_table, instructions),
+                              cons(compile_quasiquote(cdr(exp), symbol_table, instructions), build_nil())))
+        }
+        else {
+            return cons("cons",
+                        cons(cons('quote', cons(v, null)), 
+                             cons(compile_quasiquote(cdr(exp), symbol_table, instructions), build_nil())))
         }
     }
 }
@@ -605,12 +635,20 @@ var another_compiler = function(exp, symbol_table, instructions)
     else // lisp
     {
         var tag = car(exp);
-        if(tag === "quote")
+        if(tag === "quote" || tag === "quasiquote")
         {
             var v = cadr(exp);
+            if(v === null)
+            {
+                instructions.push([NIL, 0, 0])
+                return;
+            }
             if(v.TYPE === LIST)
             {
+                if(tag === "quote")
                     return another_compiler(compile_list(cadr(exp), symbol_table, instructions), symbol_table, instructions);
+                else
+                    return another_compiler(compile_quasiquote(cadr(exp), symbol_table, instructions), symbol_table, instructions);
             }   
             else if (isNumber(v))
             {
@@ -855,6 +893,8 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     }
     else if (op === TEST)
     {
+        // console.log("ACC======")
+        // console.log(acc)
         if(!acc)
             return another_interpreter(insts, env, acc, stack, pc+arg0);
         else return another_interpreter(insts, env, acc, stack, pc+1);
@@ -1278,7 +1318,9 @@ var formatVector = function(v)
     for(var i = 0; i < p.length; i++)
     {
         var c = p[i];
-        if(number$(c))
+        if(c === null)
+            output = output + "() "
+        else if(number$(c))
             output = output + formatNumber(c) + " ";
         else if (typeof(c) === "string")
             output = output + c + " ";
@@ -1304,7 +1346,9 @@ var formatDictionary = function(d)
     {
         output = output + key + " "
         var c = p[key];
-        if(number$(c))
+        if(c === null)
+            output = output + "()" + ", ";
+        else if(number$(c))
             output = output + formatNumber(c) + ", ";
         else if (typeof(c) === 'string')
             output = output + (c) + ", ";
@@ -1326,6 +1370,11 @@ var formatDictionary = function(d)
 var display_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
     var v = stack_param[0];
+    if(v===null)
+    {
+        console.log("()")
+        return "undefined"
+    }
     if(number$(v))
     {
         console.log(formatNumber(v));
@@ -1478,9 +1527,6 @@ var ACC = null;
 var PC = 0;
 
 
-var x = "(def (add a . b) b) (display (add 3 4 5 (+ 6 2)))"
-var l = lexer(x);
-var p = parser(l);
 // var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
 /*
 var o = another_compiler_seq(p, ENVIRONMENT, INSTRUCTIONS);
@@ -1493,7 +1539,7 @@ console.log(x)
 var another_eval = function(exp)
 {
 	var o = another_compiler(exp, ENVIRONMENT, INSTRUCTIONS);	 // compile
-	displayInsts(INSTRUCTIONS); // print instructions 
+	// displayInsts(INSTRUCTIONS); // print instructions 
 	var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, ACC, STACK, PC); // interpret
 	PC = INSTRUCTIONS.length; // update pc
 }
@@ -1508,10 +1554,20 @@ var eval_sequence = function(exps)
     }
 }
 
-
+/*
+var x = "(def (add a . b) b) (display (add 3 4 5 (+ 6 2)))"
+var l = lexer(x);
+var p = parser(l);
 eval_sequence(p);
 console.log(ENVIRONMENT)
+*/
 
+// exports to Nodejs 
+if (typeof(module)!="undefined"){
+    module.exports.lexer = lexer;
+    module.exports.parser = parser ;
+    module.exports.eval_sequence = eval_sequence;
+}
 
 
 
