@@ -632,7 +632,7 @@ var another_compiler = function(exp, symbol_table, instructions)
         instructions.push([NIL, 0, 0]);
         return;
     }
-    else // lisp
+    else if (exp.TYPE === LIST) // lisp
     {
         var tag = car(exp);
         if(tag === "quote" || tag === "quasiquote")
@@ -738,7 +738,6 @@ var another_compiler = function(exp, symbol_table, instructions)
             }
             closure_env.push(new_frame); // add new frame
             var v = another_interpreter(instructions, closure_env, null, [], start_pc); // calculate macro
-
             // recompile calculated macro
             another_compiler(v, symbol_table, instructions);
         	return;  
@@ -772,6 +771,13 @@ var another_compiler = function(exp, symbol_table, instructions)
             return another_compiler_applic(application_head(exp), application_args(exp), symbol_table.slice(0), instructions);
         }
     }
+    else if (exp instanceof Toy_Number) // this place is huhhh  fix (defmacro x () '(def y 12)) bug
+    {
+        instructions.push([MAKE_RATIO, exp.numer, exp.denom])
+        return;
+    }
+    else // this place has bug
+        return;
 }
 
 var another_interpreter = function(insts, env, acc, stack, pc)
@@ -1293,6 +1299,8 @@ var formatList = function(l) // format list object to javascript string
                     output = output + "< user-defined-procedure >)" ;
                 else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
                     output = output + "< builtin-primitive-procedure >)"      ;
+                else if (c.TYPE === MACRO)
+                    output = output + "< macro >"
                 break;
             }
             var c = l.car;
@@ -1310,6 +1318,8 @@ var formatList = function(l) // format list object to javascript string
                 output = output + "< user-defined-procedure > " ;
             else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
                 output = output + "< builtin-procedure > "      ;
+            else if (c.TYPE === MACRO)
+                output = output + "< macro > "
             l = l.cdr; 
         }
         return output;
@@ -1338,6 +1348,8 @@ var formatVector = function(v)
             output = output + "< user-defined-procedure > " ;
         else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
             output = output + "< builtin-procedure > "      ;
+        else if (c.TYPE === MACRO)
+                output = output + "< macro > "
     }
     output = output + "]"
     return output;
@@ -1366,6 +1378,8 @@ var formatDictionary = function(d)
             output = output + "< user-defined-procedure >, " ;
         else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
             output = output + "< builtin-procedure >, "      ;
+        else if (c.TYPE === MACRO)
+            output = output + "< macro > "
     }
     output = output + "}"
     return output;
@@ -1413,6 +1427,11 @@ var display_ = new Builtin_Primitive_Procedure(function(stack_param)
     {
         console.log("< builtin-procedure >")
         return ('undefined')
+    }
+    else if (c.TYPE === MACRO)
+    {
+        console.log("< macro >")
+        return "undefined"
     }
     else
     {
