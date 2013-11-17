@@ -895,7 +895,7 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     {
         // console.log("ACC======")
         // console.log(acc)
-        if(!acc)
+        if(acc==null)
             return another_interpreter(insts, env, acc, stack, pc+arg0);
         else return another_interpreter(insts, env, acc, stack, pc+1);
     }
@@ -982,7 +982,7 @@ var number$ = function(v)
 }
 var number$_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
-    return number$(stack_param[0]);
+    return number$(stack_param[0]) ? 'true':null;
 })
 var add_ = new Builtin_Primitive_Procedure(function(stack_param){ 
     var arg0 = stack_param[0]; var arg1 = stack_param[1];
@@ -1037,10 +1037,10 @@ var div_ = new Builtin_Primitive_Procedure(function(stack_param){
     return arg0 / arg1;
 })
 var ratio$_ = new Builtin_Primitive_Procedure(function(stack_param){ 
-  return stack_param[0] instanceof Toy_Number && (stack_param[0].TYPE === RATIO);
+  return stack_param[0] instanceof Toy_Number && (stack_param[0].TYPE === RATIO)  ? 'true':null;
 })
 var float$_ = new Builtin_Primitive_Procedure(function(stack_param){ 
-  return stack_param[0] instanceof Toy_Number && (stack_param[0].TYPE === FLOAT);
+  return stack_param[0] instanceof Toy_Number && (stack_param[0].TYPE === FLOAT)  ? 'true':null;
 })
 /* get numerator of number */
 var numerator_ = new Builtin_Primitive_Procedure(function(stack_param){ 
@@ -1059,7 +1059,7 @@ var denominator_ = new Builtin_Primitive_Procedure(function(stack_param){
 
 var null_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
-	return stack_param[0] === null;
+	return stack_param[0] === null  ? 'true':null;
 })
 var cons_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
@@ -1241,7 +1241,7 @@ var lt_ = new Builtin_Primitive_Procedure(function(stack_param)
     var arg1_number = arg1 instanceof Toy_Number;
     if (arg0_number) arg0 = arg0.numer/arg0.denom;
     if (arg1_number) arg1 = arg1.numer/arg1.denom;
-    return arg0 < arg1;
+    return arg0 < arg1  ? 'true':null;
 })
 var eq_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
@@ -1250,7 +1250,7 @@ var eq_ = new Builtin_Primitive_Procedure(function(stack_param)
     var arg1_number = arg1 instanceof Toy_Number;
     if (arg0_number) arg0 = arg0.numer/arg0.denom;
     if (arg1_number) arg1 = arg1.numer/arg1.denom;
-    return arg0 === arg1;
+    return arg0 === arg1  ? 'true':null;
 })
 
 var formatNumber = number_to_string;
@@ -1518,7 +1518,7 @@ var INSTRUCTIONS = [];
 var STACK = []
 var ENVIRONMENT = 
 [{"+":add_, "-":sub_, "*":mul_, "/":div_, "vector":vector_, "dictionary":dictionary_, "keyword":keyword_,
-  "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":true, "false":false, "null?":null_, "conj":conj_, "conj!":conj_$, "assoc":assoc_,
+  "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":"true", "false":null, "null?":null_, "conj":conj_, "conj!":conj_$, "assoc":assoc_,
   "assoc!":assoc_$, "pop":pop_, "pop!":pop_$, "<":lt_, "eq?":eq_, "number?":number$_, "ratio?":ratio$_, "float?":float$_, "numerator":numerator_, 
   "denominator":denominator_, "random":random_, "->ratio":_to_ratio, "dictionary-keys":dictionary_keys_, "ref":ref_, "->str":to_str_, "typeof":typeof_
 },
