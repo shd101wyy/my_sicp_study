@@ -29,7 +29,7 @@ if (argv.length==2){
 		var p = toy.parser(l);
 		var o =  toy.eval_sequence(p);
 		// console.log("compile to ==> "+o);
-		console.log(vm.runInThisContext(o));
+		toy.display(o);
 		// toy.display( toy.TOY_Eval(line,toy.ENV_LIST,"") )
 		rl.setPrompt('toy> ')
 		rl.prompt()

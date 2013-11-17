@@ -677,7 +677,7 @@ var another_compiler = function(exp, symbol_table, instructions)
             another_compiler(var_value, symbol_table, instructions);
             //symbol_table[symbol_table.length - 1][var_name] = Object.keys(symbol_table[symbol_table.length - 1]).length; // add var name to symbol table
             //instructions.push([ASSIGN, symbol_table[symbol_table.length - 1][var_name], symbol_table.length - 1]) // push instructions
-            symbol_table[symbol_table.length - 1][var_name] = undefined;
+            symbol_table[symbol_table.length - 1][var_name] = "undefined";
             instructions.push([ASSIGN, var_name, symbol_table.length - 1]) 
             return;
         }
@@ -1030,6 +1030,10 @@ var div_ = new Builtin_Primitive_Procedure(function(stack_param){
     if(arg0_number && arg1_number)
     {
         if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return (arg0.numer/arg0.denom) / (arg1.numer/arg1.denom);
+        if(arg1.numer === 0){
+            console.log("ERROR: Cannot divide by 0")
+            return "false"
+        }
         return  div_rat(arg0, arg1);
     }
     if(arg0_number) arg0 = number_to_string(arg0);
@@ -1542,14 +1546,16 @@ var another_eval = function(exp)
 	// displayInsts(INSTRUCTIONS); // print instructions 
 	var x = another_interpreter(INSTRUCTIONS, ENVIRONMENT, ACC, STACK, PC); // interpret
 	PC = INSTRUCTIONS.length; // update pc
+    return x
 }
 var eval_sequence = function(exps)
 {
-	if(exps==null)
+	if(exps==null){
         return ACC;
+    }
     else
     {
-    	another_eval(car(exps));
+    	ACC = another_eval(car(exps));
         return eval_sequence(cdr(exps));
     }
 }
@@ -1567,6 +1573,7 @@ if (typeof(module)!="undefined"){
     module.exports.lexer = lexer;
     module.exports.parser = parser ;
     module.exports.eval_sequence = eval_sequence;
+    module.exports.display = function(x){display_.func([x])}
 }
 
 
