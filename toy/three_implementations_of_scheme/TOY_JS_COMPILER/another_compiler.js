@@ -690,6 +690,11 @@ var another_compiler = function(exp, symbol_table, instructions)
             for(var i = 0; i < param_array.length; i++)
             {
             	var p_v = car(param_vals)
+                if(param_array[i] === ".") // variadic
+                {
+                    new_frame[param_array[i+1]] = param_vals;
+                    break; 
+                }
             	new_frame[param_array[i]] = p_v;  // assign value
             	param_vals = cdr(p_v);
             }
@@ -812,6 +817,15 @@ var another_interpreter = function(insts, env, acc, stack, pc)
             var param_vals = stack.pop(); // pop temp frame from stack
             for(var i = 0; i < param_array.length; i++)
             {
+                if(param_array[i] === ".") // variadic
+                {
+                    var array_to_list = function(arr, count)
+                    {   if (count === arr.length) return null
+                        return cons(arr[count], array_to_list(arr, count+1))
+                    }
+                    new_frame[param_array[i+1]] = array_to_list(param_vals.slice(i), 0) // convert to list
+                    break
+                } 
             	new_frame[param_array[i]] = param_vals[i];  // assign value
             }
             delete stack; // delete stack
@@ -1427,6 +1441,20 @@ var to_str_ = new Builtin_Primitive_Procedure(function(stack_param)
         return new ATOM('undefined');
     }
 })
+var typeof_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    var v = stack_param[0]
+    if (v === null) return "null"
+    else if(typeof(v)==="string") return "atom"
+    else if (v instanceof Cons) return "list"
+    else if (v instanceof Array) return "vector"
+    else if (v instanceof Dictionary) return "dictionary"
+    else if (v.TYPE === PROCEDURE || v.TYPE === BUILTIN_PRIMITIVE_PROCEDURE) return "procedure"
+    else{
+        console.log("ERROR: Cannot judge type")
+        return "undefined"
+    }
+})
 /*
 var SYMBOL_TABLE = [{
     "+":0, "-":1, "*":2, "/":3, "list":4, "vector":5, "dictionary":6, "keyword":7, "cons":8, "car":9, "cdr":10,
@@ -1443,14 +1471,14 @@ var ENVIRONMENT =
 [{"+":add_, "-":sub_, "*":mul_, "/":div_, "vector":vector_, "dictionary":dictionary_, "keyword":keyword_,
   "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":true, "false":false, "null?":null_, "conj":conj_, "conj!":conj_$, "assoc":assoc_,
   "assoc!":assoc_$, "pop":pop_, "pop!":pop_$, "<":lt_, "eq?":eq_, "number?":number$_, "ratio?":ratio$_, "float?":float$_, "numerator":numerator_, 
-  "denominator":denominator_, "random":random_, "->ratio":_to_ratio, "dictionary-keys":dictionary_keys_, "ref":ref_, "->str":to_str_
+  "denominator":denominator_, "random":random_, "->ratio":_to_ratio, "dictionary-keys":dictionary_keys_, "ref":ref_, "->str":to_str_, "typeof":typeof_
 },
  {}]
 var ACC = null;
 var PC = 0;
 
 
-var x = "(display '(1 2 3))"
+var x = "(def (add a . b) b) (display (add 3 4 5 (+ 6 2)))"
 var l = lexer(x);
 var p = parser(l);
 // var o = another_compiler_seq(p, SYMBOL_TABLE, INSTRUCTIONS);
