@@ -1,1 +1,81 @@
 (def (list . args) args)
+(def o_+ +) ;; store old + procedure
+;; new + procedure that admit more than one arguments
+(def (+ . args)
+	(def length (len args))
+	(def (+_iter result args)
+		(cond ((null? args) result)
+			  (else
+			  	(+_iter (o_+ (car args) result)
+			  			(cdr args)) 
+			  	)))
+	(cond ((eq? length 0) 
+		   (display "ERROR: Function + invalid parameters. Please provide parameters"))
+		  (else
+		  	(+_iter 0 args))))
+
+(def o_- -) ;; store old - procedure
+;; new - procedure that admit more than one arguments
+(def (- . args)
+	(def length (len args))
+	(def (-_iter result args)
+		(cond ((null? args) result)
+			  (else
+			  	(-_iter (o_- result (car args))
+			  			(cdr args)) 
+			  	)))
+	(cond ((eq? length 0) 
+		   (display "ERROR: Function - invalid parameters. Please provide parameters"))
+		  ((eq? length 1)
+		  	(o_- 0 (car args)))
+		  (else
+		  	(-_iter (car args) (cdr args) ))))
+
+(def o_* *) ;; store old * procedure
+;; new * procedure that admit more than one arguments
+(def (* . args)
+	(def length (len args))
+	(def (*_iter result args)
+		(cond ((null? args) result)
+			  (else
+			  	(*_iter (o_* (car args) result)
+			  			(cdr args)) 
+			  	)))
+	(cond ((eq? length 0) 
+		   (display "ERROR: Function * invalid parameters. Please provide parameters"))
+		  (else
+		  	(*_iter 1 args))))
+
+(def o_/ /) ;; store old / procedure
+;; new / procedure that admit more than one arguments
+(def (/ . args)
+	(def length (len args))
+	(def (/_iter result args)
+		(cond ((null? args) result)
+			  (else
+			  	(/_iter (o_/ result (car args))
+			  			(cdr args)) 
+			  	)))
+	(cond ((eq? length 0) 
+		   (display "ERROR: Function / invalid parameters. Please provide parameters"))
+		  ((eq? length 1)
+		  	(o_/ 1 (car args)))
+		  (else
+		  	(/_iter (car args) (cdr args) ))))
+
+(display (+ (/ 3 6 8) 4 5))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

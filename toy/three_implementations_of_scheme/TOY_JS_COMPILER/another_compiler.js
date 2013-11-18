@@ -321,7 +321,96 @@ var if_alternative = function(exp)
         return '0';
     return car(v);
 }
+/*
+    (cond ((judge1) (body1))
+          ((judge2) (body2))
+          ...
+          (else bodyn)
+        )
+        (define (cond-clauses exp) (cdr exp))
 
+(define (cond-else-clause? clause)
+  (eq? (cond-predicate clause) 'else))
+
+(define (cond-predicate clause) (car clause))
+
+(define (cond-actions clause) (cdr clause))
+
+(define (cond->if exp)
+  (expand-clauses (cond-clauses exp)))
+
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false                          ; no else clause
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (if (cond-else-clause? first)
+            (if (null? rest)
+                (sequence->exp (cond-actions first))
+                (error "ELSE clause isn't last -- COND->IF"
+                       clauses))
+            (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
+                     (expand-clauses rest))))))
+*/
+var cond_clauses = function(exp){return cdr(exp);}
+var cond_else_clause$ = function(clause)
+{
+    return car(clause) === "else"
+}
+var cond_predicate = function(clause)
+{
+    return car(clause);
+}
+var cond_actions = function(clause)
+{
+    return cdr(clause);
+}
+var cond_to_if = function(exp)
+{
+    return expand_clauses(cond_clauses(exp));
+}
+var sequence_to_exp = function(exps)
+{
+    return cons('begin', exps);
+}
+var make_if = function(test, consequent, alternative)
+{
+    return cons('if',
+           cons(test,
+           cons(consequent,
+           cons(alternative, build_nil()))));
+}
+var expand_clauses = function(clauses)
+{
+    if(clauses === null)
+    {
+        return cons('quote', cons(null, null));
+    }
+    else
+    {
+        var first = car(clauses);
+        var rest = cdr(clauses);
+        if(cond_else_clause$(first))
+        {
+            if(rest === null)
+            {
+                return sequence_to_exp(cond_actions(first));
+            }
+            else
+            {
+                error("ELSE clause isn't last -- COND->IF");
+                return build_nil();
+            }
+        }
+        else
+        {
+            return make_if(cond_predicate(first),
+                    sequence_to_exp(cond_actions(first)),
+                    expand_clauses(rest))
+        }
+    }
+}
 /*
     compile lambda
     (lambda (a b) (+ a b))
@@ -703,6 +792,10 @@ var another_compiler = function(exp, symbol_table, instructions)
         {
             return another_compiler_if(if_test(exp), if_consequent(exp), if_alternative(exp), symbol_table, instructions);
         }
+        else if (tag === "cond")
+        {
+            return another_compiler(cond_to_if(exp), symbol_table, instructions); // compile var value
+        }
         else if (tag === "lambda")
         {
             return another_compiler_lambda(lambda_arguments(exp), lambda_body(exp), symbol_table.slice(0), instructions);
@@ -764,7 +857,7 @@ var another_compiler = function(exp, symbol_table, instructions)
         } */
         else if (tag === "begin")
         {
-            return compile_begin(cdr(exp), symbol_table, instructions);
+            return another_compiler_seq(cdr(exp), symbol_table, instructions);
         }
         else
         {
@@ -882,12 +975,25 @@ var another_interpreter = function(insts, env, acc, stack, pc)
         else if (acc instanceof Array) // vector ([0, 1] 0) => 0
         {
        		var param_vals = stack.pop(); // pop temp frame from stack
-       		return another_interpreter(insts, env, acc[param_vals[0].numer], stack, pc+1);
+            var index = param_vals[0].numer; // get index
+            if( index >= acc.length || index < 0)
+            {
+                console.log("ERROR: Index out of boundary")
+                return "undefined"
+            }
+       		return another_interpreter(insts, env, acc[index], stack, pc+1);
         }
         else if (acc instanceof Object) // dictionary  ({:a 12} :a) => 12
         {
 			var param_vals = stack.pop(); // pop temp frame from stack
-       		return another_interpreter(insts, env, acc[param_vals[0]], stack, pc+1);
+            var key = param_vals[0]; // get key
+            if( key in acc)
+       		   return another_interpreter(insts, env, acc[param_vals[0]], stack, pc+1);
+            else
+            {
+                console.log("ERROR: Key:" + key + " does not exist in current object");
+                return "undefined"
+            }
         }
         else // error
         {
@@ -1497,8 +1603,25 @@ var ref_ = new Builtin_Primitive_Procedure(function(stack_param)
         }
         return list_ref(arg0, arg1.numer)
     }
-    else if (arg0 instanceof Array) return arg0[arg1.numer]
-    else if(arg0 instanceof Array) return arg0[arg1];
+    else if (arg0 instanceof Array)
+    {
+        var index = arg1.numer;
+        if(index<0 || index>=arg0.length)
+        {
+            console.log("ERROR: Index out of boundary")
+            return "undefined"
+        }
+        return arg0[arg1.numer]
+    } 
+    else if(arg0 instanceof Object){ 
+        if(arg1 in arg0)
+            return arg0[arg1];
+        else
+        {
+            console.log("ERROR: Index key in object")
+            return "undefined"
+        }
+    }
     else
         console.log("ERROR:Function ref wrong type parameters")
 })
@@ -1552,7 +1675,7 @@ var len_ = new Builtin_Primitive_Procedure(function(stack_param)
             if(list === null) return count
             return list_len(cdr(list), count+1)
         }
-        return list_len(list, 0);
+        return new Toy_Number(list_len(v, 0), 1 ,RATIO)
     }
     else if (v instanceof Array)
         return new Toy_Number(v.length, 1, RATIO)

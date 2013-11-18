@@ -41,5 +41,29 @@ if (argv.length==2){
 	});
 	
 }
+// run file
+else if (argv.length==3){
+	var file_name = argv[2]
+	if (typeof(file_name)=="undefined"){
+		console.log("No input file..")
+		process.exit(0)
+	}
+	// get content of file
+	var content_in_file=fs.readFileSync(file_name,"utf8")
+
+	var l = toy.lexer(content_in_file);
+	var p = toy.parser(l);
+	var o =  toy.eval_sequence(p);
+
+}
+
+
+
+
+
+
+
+
+
 
 
