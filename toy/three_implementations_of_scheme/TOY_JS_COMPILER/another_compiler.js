@@ -674,10 +674,10 @@ var another_compiler = function(exp, symbol_table, instructions)
                 return another_compiler(make_lambda(exp), symbol_table, instructions);
             var var_name = cadr(exp);
             var var_value = caddr(exp);
+            symbol_table[symbol_table.length - 1][var_name] = "undefined"; // add var name to environment
             another_compiler(var_value, symbol_table, instructions);
             //symbol_table[symbol_table.length - 1][var_name] = Object.keys(symbol_table[symbol_table.length - 1]).length; // add var name to symbol table
             //instructions.push([ASSIGN, symbol_table[symbol_table.length - 1][var_name], symbol_table.length - 1]) // push instructions
-            symbol_table[symbol_table.length - 1][var_name] = "undefined";
             instructions.push([ASSIGN, var_name, symbol_table.length - 1]) 
             return;
         }
