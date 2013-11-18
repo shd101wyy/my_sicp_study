@@ -882,7 +882,7 @@ var another_interpreter = function(insts, env, acc, stack, pc)
         else if (acc instanceof Array) // vector ([0, 1] 0) => 0
         {
        		var param_vals = stack.pop(); // pop temp frame from stack
-       		return another_interpreter(insts, env, acc[param_vals[0]], stack, pc+1);
+       		return another_interpreter(insts, env, acc[param_vals[0].numer], stack, pc+1);
         }
         else if (acc instanceof Object) // dictionary  ({:a 12} :a) => 12
         {
@@ -1487,7 +1487,18 @@ var ref_ = new Builtin_Primitive_Procedure(function(stack_param)
     var arg0 = stack_param[0]; var arg1 = stack_param[1];
     if(typeof(arg0) === "string")
         return arg0[arg1];
-    if(arg0 instanceof Array || arg0 instanceof Object) return arg0[arg1];
+    if (arg0.TYPE === LIST)
+    {
+        var list_ref = function(list, count)
+        {
+            if(list===null) return null;
+            if(count === 0) return car(list);
+            return list_ref(cdr(list), count-1);
+        }
+        return list_ref(arg0, arg1.numer)
+    }
+    else if (arg0 instanceof Array) return arg0[arg1.numer]
+    else if(arg0 instanceof Array) return arg0[arg1];
     else
         console.log("ERROR:Function ref wrong type parameters")
 })
@@ -1530,6 +1541,56 @@ var typeof_ = new Builtin_Primitive_Procedure(function(stack_param)
         return "undefined"
     }
 })
+var len_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    var v = stack_param[0]
+    if(v===null) return new Toy_Number(0, 1, RATIO)
+    else if (v.TYPE === LIST)
+    {
+        var list_len = function(list, count)
+        {
+            if(list === null) return count
+            return list_len(cdr(list), count+1)
+        }
+        return list_len(list, 0);
+    }
+    else if (v instanceof Array)
+        return new Toy_Number(v.length, 1, RATIO)
+    else{
+        console.log("ERROR: Function len wrong type parameters")
+        return "undefined"
+    }
+})
+var slice_ = new Builtin_Primitive_Procedure(function(stack_param)
+{
+    var v = stack_param[0];
+    var arg0 = stack_param[1]; var arg1 = stack_param[2];
+    if(!(arg0 instanceof Toy_Number) || !(arg1 instanceof Toy_Number))
+    {
+        console.log("ERROR: Function slice wrong type parameters");
+        return "undefined"
+    } 
+    if(v instanceof Array)
+        return v.slice(arg0.numer, arg1.numer)
+    else if (v.TYPE === LIST)
+    {
+        var list_slice = function(list, start, end, count)
+        {
+            if(count>=start)
+            {
+                if (count === end) return null;
+                return cons(car(list), start, end, count+1)
+            }
+            return list_slice(cdr(list), start, end, count+1)
+        }
+        return list_slice(v, arg0, arg1);
+    }
+    else
+    {
+        console.log("ERROR: Function slice wrong type parameters")
+        return "undefined"
+    }
+})
 /*
 var SYMBOL_TABLE = [{
     "+":0, "-":1, "*":2, "/":3, "list":4, "vector":5, "dictionary":6, "keyword":7, "cons":8, "car":9, "cdr":10,
@@ -1546,7 +1607,8 @@ var ENVIRONMENT =
 [{"+":add_, "-":sub_, "*":mul_, "/":div_, "vector":vector_, "dictionary":dictionary_, "keyword":keyword_,
   "cons":cons_, "car":car_, "cdr":cdr_, "display":display_, "true":"true", "false":null, "null?":null_, "conj":conj_, "conj!":conj_$, "assoc":assoc_,
   "assoc!":assoc_$, "pop":pop_, "pop!":pop_$, "<":lt_, "eq?":eq_, "number?":number$_, "ratio?":ratio$_, "float?":float$_, "numerator":numerator_, 
-  "denominator":denominator_, "random":random_, "->ratio":_to_ratio, "dictionary-keys":dictionary_keys_, "ref":ref_, "->str":to_str_, "typeof":typeof_
+  "denominator":denominator_, "random":random_, "->ratio":_to_ratio, "dictionary-keys":dictionary_keys_, "ref":ref_, "->str":to_str_, "typeof":typeof_,
+  "len":len_, "slice":slice_
 },
  {}]
 var ACC = null;
