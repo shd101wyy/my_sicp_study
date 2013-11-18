@@ -50,7 +50,7 @@ var Builtin_Primitive_Procedure = function(func)
 }
 var Toy_Number = function(numer, denom, type)
 {
-    this.TYPE === type;
+    this.TYPE = type;
     this.numer = numer;
     this.denom = denom;
 }
@@ -734,7 +734,7 @@ var another_compiler = function(exp, symbol_table, instructions)
                     break; 
                 }
             	new_frame[param_array[i]] = p_v;  // assign value
-            	param_vals = cdr(p_v);
+            	param_vals = cdr(param_vals);
             }
             closure_env.push(new_frame); // add new frame
             var v = another_interpreter(instructions, closure_env, null, [], start_pc); // calculate macro
@@ -795,7 +795,9 @@ var another_interpreter = function(insts, env, acc, stack, pc)
     	var v = arg0;
     	if(arg1 === 0){} // atom
     	else if (arg1 === 1) // float number
-    		v = new Toy_Number(arg0, 1, FLOAT);
+        {
+    		v = new Toy_Number(parseFloat(arg0), 1, FLOAT);
+        }
     	else // string
     		v = v.slice(1, v.length - 1);
         return another_interpreter(insts, env, v, stack, pc+1);
@@ -996,7 +998,7 @@ var add_ = new Builtin_Primitive_Procedure(function(stack_param){
     var arg1_number = arg1 instanceof Toy_Number;
     if(arg0_number && arg1_number)
     {
-        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return arg0.numer/arg0.denom + arg1.numer/arg1.denom;
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return new Toy_Number(arg0.numer/arg0.denom + arg1.numer/arg1.denom, 1,  FLOAT);
         return add_rat(arg0, arg1);
     }
     if(arg0_number) arg0 = number_to_string(arg0);
@@ -1009,7 +1011,7 @@ var sub_ = new Builtin_Primitive_Procedure(function(stack_param){
     var arg1_number = arg1 instanceof Toy_Number;
     if(arg0_number && arg1_number)
     {
-        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return arg0.numer/arg0.denom - arg1.numer/arg1.denom;
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return new Toy_Number(arg0.numer/arg0.denom - arg1.numer/arg1.denom, 1, FLOAT);
         return sub_rat(arg0, arg1);
     }
     if(arg0_number) arg0 = number_to_string(arg0);
@@ -1022,7 +1024,7 @@ var mul_ = new Builtin_Primitive_Procedure(function(stack_param){
     var arg1_number = arg1 instanceof Toy_Number;
     if(arg0_number && arg1_number)
     {
-        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return (arg0.numer/arg0.denom) * (arg1.numer/arg1.denom);
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return new Toy_Number((arg0.numer/arg0.denom) * (arg1.numer/arg1.denom), 1, FLOAT);
         return mul_rat(arg0, arg1);
     }
     if(arg0_number) arg0 = number_to_string(arg0);
@@ -1035,7 +1037,7 @@ var div_ = new Builtin_Primitive_Procedure(function(stack_param){
     var arg1_number = arg1 instanceof Toy_Number;
     if(arg0_number && arg1_number)
     {
-        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return (arg0.numer/arg0.denom) / (arg1.numer/arg1.denom);
+        if(arg0.TYPE === FLOAT || arg1.TYPE === FLOAT) return new Toy_Number((arg0.numer/arg0.denom) / (arg1.numer/arg1.denom), 1, FLOAT);
         if(arg1.numer === 0){
             console.log("ERROR: Cannot divide by 0")
             return "false"
