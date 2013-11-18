@@ -1295,14 +1295,14 @@ var formatList = function(l) // format list object to javascript string
                     output = output + formatList(c) + ")";
                 else if (c instanceof Array)
                     output = output + formatVector(c) + ")";
-                else if (c instanceof Object)
-                    output = output + formatDictionary(c) + ")";
                 else if (c.TYPE === PROCEDURE)
                     output = output + "< user-defined-procedure >)" ;
                 else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
                     output = output + "< builtin-primitive-procedure >)"      ;
                 else if (c.TYPE === MACRO)
-                    output = output + "< macro >"
+                    output = output + "< macro >";
+                else if (c instanceof Object)
+                    output = output + formatDictionary(c) + ")";
                 break;
             }
             var c = l.car;
@@ -1314,14 +1314,14 @@ var formatList = function(l) // format list object to javascript string
                 output = output + formatList(c) + " ";
             else if (c instanceof Array)
                 output = output + formatVector(c) + " ";
-            else if (c instanceof Object)
-                output = output + formatDictionary(c) + " ";
             else if (c.TYPE === PROCEDURE)
                 output = output + "< user-defined-procedure > " ;
             else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
                 output = output + "< builtin-procedure > "      ;
             else if (c.TYPE === MACRO)
                 output = output + "< macro > "
+            else if (c instanceof Object)
+                output = output + formatDictionary(c) + " ";
             l = l.cdr; 
         }
         return output;
@@ -1344,14 +1344,14 @@ var formatVector = function(v)
             output = output + formatList(c) + " ";
         else if (c instanceof Array)
             output = output + formatVector(c) + " ";
-        else if (c instanceof Object)
-            output = output + formatDictionary(c) + " ";
         else if (c.TYPE === PROCEDURE)
             output = output + "< user-defined-procedure > " ;
         else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
             output = output + "< builtin-procedure > "      ;
         else if (c.TYPE === MACRO)
-                output = output + "< macro > "
+            output = output + "< macro > "
+        else if (c instanceof Object)
+            output = output + formatDictionary(c) + " ";
     }
     output = output + "]"
     return output;
@@ -1359,7 +1359,7 @@ var formatVector = function(v)
 var formatDictionary = function(d)
 {
     var output = "{";
-    var p = d.dict; // pointer
+    var p = d;  // pointer
     for(var key in p)
     {
         output = output + key + " "
@@ -1374,14 +1374,14 @@ var formatDictionary = function(d)
             output = output + formatList(c) + ", ";
         else if (c instanceof Array)
             output = output + formatVector(c) + ",";
-        else if (c instanceof Object)
-            output = output + formatDictionary(c) + ", ";
         else if (c.TYPE === PROCEDURE)
             output = output + "< user-defined-procedure >, " ;
         else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
             output = output + "< builtin-procedure >, "      ;
         else if (c.TYPE === MACRO)
             output = output + "< macro > "
+        else if (c instanceof Object)
+            output = output + formatDictionary(c) + ", ";
     }
     output = output + "}"
     return output;
@@ -1415,11 +1415,6 @@ var display_ = new Builtin_Primitive_Procedure(function(stack_param)
         console.log(formatVector(v));
         return ('undefined')
     }
-    else if (v instanceof Object)
-    {
-        console.log(formatDictionary(v));
-        return ('undefined')
-    }
     else if (v.TYPE === PROCEDURE)
     {
         console.log("< user-defined-procedure >");
@@ -1430,10 +1425,15 @@ var display_ = new Builtin_Primitive_Procedure(function(stack_param)
         console.log("< builtin-procedure >")
         return ('undefined')
     }
-    else if (c.TYPE === MACRO)
+    else if (v.TYPE === MACRO)
     {
         console.log("< macro >")
         return "undefined"
+    }
+    else if (v instanceof Object)
+    {
+        console.log(formatDictionary(v));
+        return ('undefined')
     }
     else
     {
@@ -1503,12 +1503,12 @@ var to_str_ = new Builtin_Primitive_Procedure(function(stack_param)
         return (formatList(v));
     else if (v instanceof Array)
         return (formatVector(v));
-    else if (v instanceof Object)
-        return (formatDictionary(v));
     else if (v.TYPE === PROCEDURE)
         return ("< user-defined-procedure >");
     else if (v.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
         return ('undefined');
+    else if (v instanceof Object)
+        return (formatDictionary(v));
     else
     {
         console.log("Function display: Invalid Parameters Type");
@@ -1522,8 +1522,9 @@ var typeof_ = new Builtin_Primitive_Procedure(function(stack_param)
     else if(typeof(v)==="string") return "atom"
     else if (v instanceof Cons) return "list"
     else if (v instanceof Array) return "vector"
-    else if (v instanceof Dictionary) return "dictionary"
     else if (v.TYPE === PROCEDURE || v.TYPE === BUILTIN_PRIMITIVE_PROCEDURE) return "procedure"
+    else if (v.TYPE === MACRO) return "macro"
+    else if (v instanceof Object) return "dictionary"
     else{
         console.log("ERROR: Cannot judge type")
         return "undefined"
