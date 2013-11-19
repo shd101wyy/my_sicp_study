@@ -273,11 +273,23 @@ var parser = function(l)
     Numeric Calculation
 */
 // GCD
+/* // use  resursion
 var gcd = function(a,b)
 {
     if (b==0)
         return a
     return gcd(b,a%b)
+}
+*/
+var gcd = function(a,b)
+{
+    while(b!=0)
+    {
+        var temp = a;
+        a = b;
+        b = temp%b;
+    }
+    return a;
 }
 var numer = function(rat){return rat.numer}
 var denom = function(rat){return rat.denom}
@@ -334,14 +346,15 @@ var formatList = function(l) // format list object to javascript string
         {
             if(l === null) // finish
             {
-                output = output + ")";
+                output = output.slice(0, output.length - 1) + ")";
                 break;
             }
             if(!(l instanceof Cons)) // pair
             {
                 var c = l;
                 output = output + ". ";
-                if(number$(c))
+                if (c === null) output = output + "())";
+                else if(number$(c))
                     output = output + formatNumber(c) + ")";
                 else if (typeof(c) === "string")
                     output = output + c + ")";
@@ -361,7 +374,8 @@ var formatList = function(l) // format list object to javascript string
                 break;
             }
             var c = l.car;
-            if(number$(c))
+            if (c === null) output = output + "() ";
+            else if(number$(c))
                 output = output + formatNumber(c) + " ";
             else if (typeof(c) === "string")
                 output = output + c + " ";
@@ -369,11 +383,11 @@ var formatList = function(l) // format list object to javascript string
                 output = output + formatList(c) + " ";
             else if (c instanceof Array)
                 output = output + formatVector(c) + " ";
-            else if (c.TYPE === PROCEDURE)
-                output = output + "< user-defined-procedure > " ;
             else if (typeof(c) === 'function')
             // else if (c.TYPE === BUILTIN_PRIMITIVE_PROCEDURE)
                 output = output + "< builtin-procedure > "      ;
+            else if (c.TYPE === PROCEDURE)
+                output = output + "< user-defined-procedure > " ;
             else if (c.TYPE === MACRO)
                 output = output + "< macro > "
             else if (c instanceof Object)
@@ -410,7 +424,7 @@ var formatVector = function(v)
         else if (c instanceof Object)
             output = output + formatDictionary(c) + " ";
     }
-    output = output + "]"
+    output = output.slice(0, output.length - 1) + "]"
     return output;
 }
 var formatDictionary = function(d)
@@ -441,7 +455,7 @@ var formatDictionary = function(d)
         else if (c instanceof Object)
             output = output + formatDictionary(c) + ", ";
     }
-    output = output + "}"
+    output = output.slice(0, output.length - 1) + "}"
     return output;
 }
 
@@ -456,6 +470,7 @@ var lookup_env = function(var_name, env)
         if(var_name in env[i])
             return env[i][var_name]
     }
+    console.log("ERROR: unbound variable: " + var_name);
     return "undefined"
 }
 /* arg0: (add a b)
@@ -511,7 +526,7 @@ var eval_cond = function(clauses, env)
         var predicate = car(clause);
         var body = cdr(clause);
         if(predicate == "else" || toy_eval(predicate, env)!==null)
-            return toy_eval(body, env)
+            return eval_begin(body, env)
         clauses = cdr(clauses);
     }
     return null;
@@ -590,172 +605,212 @@ var eval_begin = function(body, env)
 */
 var toy_eval = function(exp, env)
 {
-    if(exp === null) return null;
-    else if(typeof(exp) === "string"){
-        if(exp[0]==='"')return exp.slice(1, exp.length-1)
-        return lookup_env(exp, env);
-    }
-    else if (exp instanceof Toy_Number)
-        return exp;
-    else if (exp.TYPE === LIST)
+    while (true)
     {
-        var tag = car(exp);
-        if(tag === "quote")
-        {
-            return cadr(exp);
+        if(exp === null) return null;
+        else if(typeof(exp) === "string"){
+            if(exp[0]==='"')return exp.slice(1, exp.length-1)
+            return lookup_env(exp, env);
         }
-        else if (tag === "quasiquote")
+        else if (exp instanceof Toy_Number)
+            return exp;
+        else if (exp.TYPE === LIST)
         {
-            var value = cadr(exp);
-            if(typeof(value)!=="string" && value.TYPE === LIST)
+            var tag = car(exp);
+            if(tag === "quote")
             {
-                return eval_quasiquote(value, env);
+                return cadr(exp);
             }
-            return value
-        }
-        else if(tag === "def")
-        {
-            var var_name = cadr(exp);
-            var var_value = caddr(exp);
-            /* lambda */
-            if(typeof(var_name)!=="string" && var_name.TYPE === LIST)
+            else if (tag === "quasiquote")
             {
-                return toy_eval(make_lambda(var_name, cddr(exp)), env)
+                var value = cadr(exp);
+                if(typeof(value)!=="string" && value.TYPE === LIST)
+                {
+                    return eval_quasiquote(value, env);
+                }
+                return value
             }
-            else
+            else if(tag === "def")
             {
-                var_value = toy_eval(var_value, env);
-                env[env.length - 1][var_name] = var_value;
-                return var_value;
+                var var_name = cadr(exp);
+                var var_value = caddr(exp);
+                /* lambda */
+                if(typeof(var_name)!=="string" && var_name.TYPE === LIST)
+                {
+                    return toy_eval(make_lambda(var_name, cddr(exp)), env)
+                }
+                else
+                {
+                    var_value = toy_eval(var_value, env);
+                    env[env.length - 1][var_name] = var_value;
+                    return var_value;
+                }
             }
-        }
-        else if (tag === "set!")
-        {
-            var var_name = cadr(exp);
-            var var_value = toy_eval(caddr(exp), env);
-            return eval_set(var_name, var_value, env);
-        }
-        /*
-        else if (tag === "macro")
-        {
-            return eval_macro(cadr(exp), cddr(exp), env);
-        }
-        */
-        /*
-            (let [x 1 y 2] (+ x y))
-        */
-        else if (tag === "let")
-        {
-            var var_val_vector = cadr(exp);
-            if(var_val_vector.car!=="vector"){console.log("ERROR: please use [] in let when binding variables. Like (let [a 0 b 2] (+ a b))"); return "undefined"}
-            var_val_vector = cdr(var_val_vector);
-            var new_frame = {};
-            env.push(new_frame);
-            while(var_val_vector!==null)
+            else if (tag === "set!")
             {
-                var var_name = car(var_val_vector);
-                var var_val = toy_eval(car(cdr(var_val_vector)), env);
-                new_frame[var_name] = var_val;
-                var_val_vector = cddr(var_val_vector);
+                var var_name = cadr(exp);
+                var var_value = toy_eval(caddr(exp), env);
+                return eval_set(var_name, var_value, env);
             }
-            var return_val = eval_begin(cddr(exp), env);
-            env.pop(new_frame);
-            return return_val;
-        }
-        else if (tag === "lambda")
-        {
-            return eval_lambda(cadr(exp), cddr(exp), env);
-        }
-        else if (tag === "if")
-        {
-            var test = cadr(exp);
-            var conseq = caddr(exp);
-            var alter = cadddr(exp);
+            /*
+            else if (tag === "macro")
+            {
+                return eval_macro(cadr(exp), cddr(exp), env);
+            }
+            */
+            /*
+                (let [x 1 y 2] (+ x y))
+            */
+            else if (tag === "let")
+            {
+                var var_val_vector = cadr(exp);
+                if(var_val_vector.car!=="vector"){console.log("ERROR: please use [] in let when binding variables. Like (let [a 0 b 2] (+ a b))"); return "undefined"}
+                var_val_vector = cdr(var_val_vector);
+                var new_frame = {};
+                env.push(new_frame);
+                while(var_val_vector!==null)
+                {
+                    var var_name = car(var_val_vector);
+                    var var_val = toy_eval(car(cdr(var_val_vector)), env);
+                    new_frame[var_name] = var_val;
+                    var_val_vector = cddr(var_val_vector);
+                }
+                var return_val = eval_begin(cddr(exp), env);
+                env.pop(new_frame);
+                return return_val;
+            }
+            else if (tag === "lambda")
+            {
+                return eval_lambda(cadr(exp), cddr(exp), env);
+            }
+            else if (tag === "if")
+            {
+                var test = cadr(exp);
+                var conseq = caddr(exp);
+                var alter = cadddr(exp);
 
-            test = toy_eval(test, env);
-            if(test!==null)
-                return toy_eval(conseq, env);
-            return toy_eval(alter, env);
-        }
-        else if (tag === "cond")
-        {
-            return eval_cond(cdr(exp), env);
-        }
-        else if (tag === "begin")
-        {
-            var body = cdr(exp);
-            return eval_begin(body, env);
-        }
-        else if (tag === "eval")
-        {
-            return toy_eval(toy_eval(cadr(exp), env), env)
-        }
-        else if (tag === "apply")
-        {
-            return toy_eval(cons(toy_eval(cadr(exp), env), toy_eval(caddr(exp), env) ) ,env)
-        }
-        else if (typeof(tag) === 'function') // javascript function
-        {
-            var eval_list_to_array = function(list, env)
-            {
-                var output = []; while(list!==null){output.push(toy_eval(car(list), env)); list = cdr(list)}
-                return output;
+                test = toy_eval(test, env);
+                if(test == null){
+                    exp = alter; continue;
+                }
+                exp = conseq; continue;
+                /*
+                if(test!==null)
+                    return toy_eval(conseq, env);
+                return toy_eval(alter, env);
+                */
             }
-           return tag.call(null, eval_list_to_array(cdr(exp), env));
-        }
-        else if (tag === "macroexpand-1")
-        {
-            return macro_expand(toy_eval(car(cadr(exp)), env),
-                                cdr(cadr(exp)),
-                                env);
-        }
-        else if (tag === "defmacro")
-        {
-            var macro = eval_macro(caddr(exp), cdddr(exp), env);
-            env[0][cadr(exp)] = macro;
-            return macro
-        }
-        else if (tag.TYPE === PROCEDURE)
-        {
-            return eval_procedure(tag, cdr(exp), env);
-        }
-        else if (tag.TYPE === MACRO)
-        {
-            return toy_eval(macro_expand(tag, cdr(exp), env), env);
-        }
-        else if (tag instanceof Array)
-        {
-            var index = toy_eval(cadr(exp), env);
-            if(!index instanceof Toy_Number){console.log("ERROR: invalid index");return "undefined"}
-            if( index >= tag.length || index < 0)
+            else if (tag === "cond")
             {
-                console.log("ERROR: Index out of boundary")
-                return "undefined"
+                return eval_cond(cdr(exp), env);
             }
-            return tag[index.numer];
-        }
-        else if (tag instanceof Object)
-        {
-            var key = toy_eval(cadr(exp), env);
-            if( key in tag)
-                return tag[key];
+            else if (tag === "begin")
+            {
+                var body = cdr(exp);
+                return eval_begin(body, env);
+            }
+            else if (tag === "eval")
+            {
+                return toy_eval(toy_eval(cadr(exp), env), env)
+            }
+            else if (tag === "apply")
+            {
+                return toy_eval(cons(toy_eval(cadr(exp), env), toy_eval(caddr(exp), env) ) ,env)
+            }
+            else if (typeof(tag) === 'function') // javascript function
+            {
+                var eval_list_to_array = function(list, env)
+                {
+                    var output = []; while(list!==null){output.push(toy_eval(car(list), env)); list = cdr(list)}
+                    return output;
+                }
+               return tag.call(null, eval_list_to_array(cdr(exp), env));
+            }
+            else if (tag === "macroexpand-1")
+            {
+                return macro_expand(toy_eval(car(cadr(exp)), env),
+                                    cdr(cadr(exp)),
+                                    env);
+            }
+            else if (tag === "defmacro")
+            {
+                var macro = eval_macro(caddr(exp), cdddr(exp), env);
+                env[0][cadr(exp)] = macro;
+                return macro
+            }
+            else if (tag === "while")
+            {
+                var test = cadr(exp);
+                var body = cddr(exp);
+                while(toy_eval(test, env))
+                {
+                    eval_begin(body, env);
+                }
+                return "undefined";
+            }
+            else if (tag.TYPE === PROCEDURE)
+            {   /*
+                var proc = tag;var params = cdr(exp);
+                var closure_env = proc.closure_env.slice(0);
+                var args = proc.args;
+                var body = proc.body;
+                var new_frame = {};
+                while(args!==null)
+                {   var var_name = car(args);
+                    if(var_name === ".")
+                    {
+                        new_frame[cadr(args)] = eval_list(params, env);
+                        break;  
+                    }
+                    var var_value = toy_eval(car(params), env);
+                    new_frame[var_name] = var_value;
+                    args = cdr(args); params = cdr(params);
+                }
+                closure_env.push(new_frame);
+
+                exp = cons("begin", body);
+                env = closure_env;
+                continue; */
+                return eval_procedure(tag, cdr(exp), env);
+            }
+            else if (tag.TYPE === MACRO)
+            {
+                return toy_eval(macro_expand(tag, cdr(exp), env), env);
+            }
+            else if (tag instanceof Array)
+            {
+                var index = toy_eval(cadr(exp), env);
+                if(!index instanceof Toy_Number){console.log("ERROR: invalid index");return "undefined"}
+                if( index >= tag.length || index < 0)
+                {
+                    console.log("ERROR: Index out of boundary")
+                    return "undefined"
+                }
+                return tag[index.numer];
+            }
+            else if (tag instanceof Object)
+            {
+                var key = toy_eval(cadr(exp), env);
+                if( key in tag)
+                    return tag[key];
+                else
+                {
+                    console.log("ERROR: Key:" + key + " does not exist in current object");
+                    return "undefined"
+                }
+            }
             else
             {
-                console.log("ERROR: Key:" + key + " does not exist in current object");
-                return "undefined"
+                var application =   cons(toy_eval(car(exp), env), cdr(exp))
+                return toy_eval(
+                                   application
+                                    , env
+                                    )
             }
         }
         else
-        {
-            var application =   cons(toy_eval(car(exp), env), cdr(exp))
-            return toy_eval(
-                               application
-                                , env
-                                )
-        }
+            return exp;
     }
-    else
-        return exp;
 }
 
 var primitive_builtin_functions = 
@@ -799,6 +854,10 @@ var primitive_builtin_functions =
             var arg0 = param_array[0]; var arg1 = param_array[1];
             if(arg0 instanceof Toy_Number && arg1 instanceof Toy_Number)
             {
+                if(arg1.numer === 0){ // 3/0 is invalid
+                    console.log("ERROR: Cannot divide by 0")
+                    return "undefined"
+                }
                 if(arg0.TYPE===FLOAT || arg1.TYPE===FLOAT) return new Toy_Number(  (arg0.numer/arg0.denom) / (arg1.numer/arg1.denom)  , 1, FLOAT)
                 else return div_rat(arg0, arg1);
             }
@@ -1008,7 +1067,7 @@ var primitive_builtin_functions =
     {
         var arg0 = stack_param[0]; var arg1 = stack_param[1];
         if(typeof(arg0) === "string")
-            return arg0[arg1];
+            return arg0[arg1.numer];
         if (arg0.TYPE === LIST)
         {
             var list_ref = function(list, count)
@@ -1084,6 +1143,7 @@ var primitive_builtin_functions =
     {
         var v = stack_param[0]
         if(v===null) return new Toy_Number(0, 1, RATIO)
+        else if (typeof(v)==="string") return  new Toy_Number(v.length, 1, RATIO);
         else if (v.TYPE === LIST)
         {
             var list_len = function(list, count)
@@ -1184,7 +1244,9 @@ var primitive_builtin_functions =
             console.log("Function display: Invalid Parameters Type");
             return ('undefined')
         }
-    }
+    },
+    "true":"true", "false":null,
+    "def":"def","set!":"set!","cond":"cond","if":"if","quote":"quote","quasiquote":"quasiquote","lambda":"lambda","defmacro":"defmacro", "while":"while"
 }
 var ENVIRONMENT = [
     primitive_builtin_functions, 
@@ -1208,6 +1270,9 @@ if (typeof(module)!="undefined"){
     module.exports.env = ENVIRONMENT;
 }
 
+var RUN_FIRST = '(def (list . args) args) (def o_+ +) (def (+ . args) (def length (len args)) (def (+_iter result args) (cond ((null? args) result) (else (+_iter (o_+ (car args) result) (cdr args))))) (cond ((eq? length 0) (display "ERROR: Function + invalid parameters. Please provide parameters")) (else (+_iter 0 args)))) (def o_- -) (def (- . args) (def length (len args)) (def (-_iter result args) (cond ((null? args) result) (else (-_iter (o_- result (car args)) (cdr args))))) (cond ((eq? length 0) (display "ERROR: Function - invalid parameters. Please provide parameters")) ((eq? length 1) (o_- 0 (car args))) (else (-_iter (car args) (cdr args))))) (def o_* *) (def (* . args) (def length (len args)) (def (*_iter result args) (cond ((null? args) result) (else (*_iter (o_* (car args) result) (cdr args))))) (cond ((eq? length 0) (display "ERROR: Function * invalid parameters. Please provide parameters")) (else (*_iter 1 args)))) (def o_/ /) (def (/ . args) (def length (len args)) (def (/_iter result args) (cond ((null? args) result) (else (/_iter (o_/ result (car args)) (cdr args))))) (cond ((eq? length 0) (display "ERROR: Function / invalid parameters. Please provide parameters")) ((eq? length 1) (o_/ 1 (car args))) (else (/_iter (car args) (cdr args))))) (def #t "true") (def #f ()) (def nil ()) (def (factorial n) (if (eq? n 0) 1 (* n (factorial (- n 1))))) (def (factorial n) (def (factorial-acc n acc) (if (eq? n 0) acc (factorial-acc (- n 1) (* acc n)))) (factorial-acc n 1)) (defmacro and (vector arg0 arg1) (quasiquote (if (unquote arg0) (if (unquote arg1) true false) false))) (defmacro or (vector arg0 arg1) (quasiquote (if (unquote arg0) true (if (unquote arg1) true false)))) (def (> arg0 arg1) (< arg1 arg0)) (def (<= arg0 arg1) (or (< arg0 arg1) (eq? arg0 arg1))) (def (>= arg0 arg1) (or (> arg0 arg1) (eq? arg0 arg1))) (def old-< <) (def (< . args) (let (vector <-iter (lambda (vector args cur) (if (null? args) true (if (old-< cur (car args)) (<-iter (cdr args) (car args)) false)))) (if (null? args) (display "Please provide arguments for <") (<-iter (cdr args) (car args))))) (def old-> >) (def (> . args) (let (vector >-iter (lambda (vector args cur) (if (null? args) true (if (old-> cur (car args)) (>-iter (cdr args) (car args)) false)))) (if (null? args) (display "Please provide arguments for >") (>-iter (cdr args) (car args))))) (def old-eq? eq?) (def (eq? . args) (let (vector eq?-iter (lambda (vector args cur) (if (null? args) true (if (old-eq? cur (car args)) (eq?-iter (cdr args) (car args)) false)))) (if (null? args) (display "Please provide arguments for eq?") (eq?-iter (cdr args) (car args))))) (def old-<= <=) (def (<= . args) (let (vector <=-iter (lambda (vector args cur) (if (null? args) true (if (old-<= cur (car args)) (<=-iter (cdr args) (car args)) false)))) (if (null? args) (display "Please provide arguments for <=") (<=-iter (cdr args) (car args))))) (def old->= >=) (def (>= . args) (let (vector >=-iter (lambda (vector args cur) (if (null? args) true (if (old->= cur (car args)) (>=-iter (cdr args) (car args)) false)))) (if (null? args) (display "Please provide arguments for >=") (>=-iter (cdr args) (car args))))) (def (not arg0) (if arg0 false true)) (def (pair? arg) (eq? (typeof arg) (quote list))) (def (list? arg) pair?) (def (integer? arg) (and (ratio? arg) (eq? (denominator arg) 1))) (def (atom? arg) (eq? (typeof arg) (quote atom))) (def (string? arg) atom?) (def (vector? arg) (eq? (typeof arg) (quote vector))) (def (dictionary? arg) (eq? (typeof arg) (quote dictionary)))'
+
+eval_begin(parser(lexer(RUN_FIRST)), ENVIRONMENT);
 
 
 

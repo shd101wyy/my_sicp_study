@@ -1,0 +1,13 @@
+(def old-< <)
+(def (< . args)
+	(let [<-iter (lambda [args cur]
+		  			(if (null? args) true
+		  				(if (old-< cur (car args))
+		  					(<-iter (cdr args) (car args))
+		  					false)
+		  				))
+		  ]
+		(if (null? args)
+			(display "Please provide arguments for <")
+			(<-iter (cdr args) (car args)))
+		))

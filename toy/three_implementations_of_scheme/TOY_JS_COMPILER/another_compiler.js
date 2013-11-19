@@ -1393,7 +1393,8 @@ var formatList = function(l) // format list object to javascript string
             {
                 var c = l;
                 output = output + ". ";
-                if(number$(c))
+                if (c === null) output = output + "())";
+                else if(number$(c))
                     output = output + formatNumber(c) + ")";
                 else if (typeof(c) === "string")
                     output = output + c + ")";
@@ -1412,7 +1413,8 @@ var formatList = function(l) // format list object to javascript string
                 break;
             }
             var c = l.car;
-            if(number$(c))
+            if (c === null) output = output + "() ";
+            else if(number$(c))
                 output = output + formatNumber(c) + " ";
             else if (typeof(c) === "string")
                 output = output + c + " ";
@@ -1592,7 +1594,7 @@ var ref_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
     var arg0 = stack_param[0]; var arg1 = stack_param[1];
     if(typeof(arg0) === "string")
-        return arg0[arg1];
+        return arg0[arg1.numer];
     if (arg0.TYPE === LIST)
     {
         var list_ref = function(list, count)
@@ -1668,6 +1670,7 @@ var len_ = new Builtin_Primitive_Procedure(function(stack_param)
 {
     var v = stack_param[0]
     if(v===null) return new Toy_Number(0, 1, RATIO)
+    else if (typeof(v)==="string") return  new Toy_Number(v.length, 1, RATIO);
     else if (v.TYPE === LIST)
     {
         var list_len = function(list, count)
@@ -1783,9 +1786,6 @@ if (typeof(module)!="undefined"){
     module.exports.eval_sequence = eval_sequence;
     module.exports.display = function(x){display_.func([x])}
 }
-
-
-
 
 
 
