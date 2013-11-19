@@ -468,7 +468,7 @@ var lookup_env = function(var_name, env)
 var make_lambda = function(arg0, arg1)
 {
     var var_name = car(arg0);  // add
-    var args = cdr(arg0);      // (a b)
+    var args = cons("vector", cdr(arg0));      // (a b), [a b]
     var body = arg1           // ((+ a b))
 
     var lambda_body = cons('lambda', cons(args, body))
@@ -518,10 +518,14 @@ var eval_cond = function(clauses, env)
 }
 var eval_lambda = function(lambda_args, lambda_body, env)
 {
+    if(lambda_args.car!=="vector"){console.log("ERROR: when defining lambda, please use (lambda [args] body) format");return "undefined"}
+    lambda_args = cdr(lambda_args);
     return new Procedure(lambda_args, lambda_body, env.slice(0));   
 }
 var eval_macro = function(macro_args, macro_body, env)
 {
+    if(macro_args.car!=="vector"){console.log("ERROR: when defining macro_args, please use (defmacro macro_name [args] body) format");return "undefined"}
+    macro_args = cdr(macro_args);
     return new Macro(macro_args, macro_body, env.slice(0));
 }
 var eval_list = function(list, env)
@@ -628,7 +632,7 @@ var toy_eval = function(exp, env)
         else if (tag === "set!")
         {
             var var_name = cadr(exp);
-            var var_value = toy_eval(cddr(exp), env);
+            var var_value = toy_eval(caddr(exp), env);
             return eval_set(var_name, var_value, env);
         }
         /*
@@ -637,6 +641,27 @@ var toy_eval = function(exp, env)
             return eval_macro(cadr(exp), cddr(exp), env);
         }
         */
+        /*
+            (let [x 1 y 2] (+ x y))
+        */
+        else if (tag === "let")
+        {
+            var var_val_vector = cadr(exp);
+            if(var_val_vector.car!=="vector"){console.log("ERROR: please use [] in let when binding variables. Like (let [a 0 b 2] (+ a b))"); return "undefined"}
+            var_val_vector = cdr(var_val_vector);
+            var new_frame = {};
+            env.push(new_frame);
+            while(var_val_vector!==null)
+            {
+                var var_name = car(var_val_vector);
+                var var_val = toy_eval(car(cdr(var_val_vector)), env);
+                new_frame[var_name] = var_val;
+                var_val_vector = cddr(var_val_vector);
+            }
+            var return_val = eval_begin(cddr(exp), env);
+            env.pop(new_frame);
+            return return_val;
+        }
         else if (tag === "lambda")
         {
             return eval_lambda(cadr(exp), cddr(exp), env);
