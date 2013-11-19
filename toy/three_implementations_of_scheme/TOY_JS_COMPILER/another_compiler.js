@@ -1276,7 +1276,7 @@ var assoc_ = new Builtin_Primitive_Procedure(function(stack_param)
 	if(arg0 instanceof Array)
 	{
 		var output = arg0.slice(0);
-		output[arg1] = arg2;
+		output[arg1.numer] = arg2;
 		return output;
 	}
 	else if (arg0 instanceof Object)
@@ -1339,7 +1339,7 @@ var assoc_$ = new Builtin_Primitive_Procedure(function(stack_param)
 	var arg2 = stack_param[2];
 	if(arg0 instanceof Array)
 	{
-		arg0[arg1] = arg2;
+		arg0[arg1.numer] = arg2;
 		return arg0;
 	}
 	else if (arg0 instanceof Object)
@@ -1734,6 +1734,7 @@ var ENVIRONMENT =
   "len":len_, "slice":slice_
 },
  {}]
+ ENVIRONMENT[0]["toy-env"] = new Builtin_Primitive_Procedure(function(){return ENVIRONMENT});
 var ACC = null;
 var PC = 0;
 

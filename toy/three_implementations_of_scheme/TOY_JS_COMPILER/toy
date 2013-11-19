@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 var fs=require("fs")
 // var toy=require("./toy.js")
-var toy = require("./another_compiler.js")
+var toy = require("./another_another_compiler.js")
 var vm=require("vm")
 var util=require("util")
 var readline = require('readline')
@@ -23,11 +23,10 @@ if (argv.length==2){
 
 	rl.setPrompt('toy> ')
 	rl.prompt()
-
 	rl.on('line', function(line) {
 		var l = toy.lexer(line);
 		var p = toy.parser(l);
-		var o =  toy.eval_sequence(p);
+		var o =  toy.eval_begin(p, toy.env);
 		// console.log("compile to ==> "+o);
 		toy.display(o);
 		// toy.display( toy.TOY_Eval(line,toy.ENV_LIST,"") )
@@ -53,8 +52,7 @@ else if (argv.length==3){
 
 	var l = toy.lexer(content_in_file);
 	var p = toy.parser(l);
-	var o =  toy.eval_sequence(p);
-
+	var o =  toy.eval_begin(p, toy.env);
 }
 
 
